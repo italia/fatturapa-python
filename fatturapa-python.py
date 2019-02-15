@@ -1,11 +1,10 @@
 # coding=utf-8
 ##########################################################
-#  pyFatturaPA 0.4                                       #
+#  fatturapa-python 0.4                                  #
 #--------------------------------------------------------#
 #   Quick generation of FatturaPA eInvoice XML files !   #
 #--------------------------------------------------------#
-#    Copyright (C) 2019 Walter Arrighetti, PhD, CISSP    #
-#    All Rights Reserved.                                #
+#    GNU (GPL) 2019 Walter Arrighetti, PhD, CISSP        #
 #    coding by: Walter Arrighetti                        #
 #               <walter.arrighetti@agid.gov.it>          #
 #  < https://github.com/walter-arrighetti/pyFatturaPA >  #
@@ -18,7 +17,7 @@ import sys
 import re
 
 __VERSION = "0.4"
-CONF_FILE = "pyFatturaPA.conf"
+CONF_FILE = "pyFatturaPA.conf.json"
 VAT_DEFAULT = 22.0
 
 
@@ -717,7 +716,7 @@ def main():
 		print('\n')
 		sys.exit(9)
 	print("%s %s - Genera rapidamente fatture elettroniche semplici in XML nel formato FatturaPA."%(sys.argv[0].upper(),__VERSION))
-	print("Copytight (C) 2019 Walter Arrighetti  <walter.arrighetti@agid.gov.it>\n")
+	print("GNU GPL v3.0. Maintainer[2019]: Walter Arrighetti <walter.arrighetti@agid.gov.it>\n")
 	[PROVINCES.extend(list(prov.keys())) for prov in REGIONS.values()]
 	if len(sys.argv) != 2:	print_args()
 	elif sys.argv[1].lower()=="consulenza":	issue_consultancy()
@@ -725,7 +724,7 @@ def main():
 	elif sys.argv[1].lower()=="committente":	add_company()
 	elif sys.argv[1].lower()=="inizializza":	create_config()
 	else:	print_args()
-	sys.exit(0)
+	sys.exit(9)
 
 
 if __name__ == "__main__":	main()
