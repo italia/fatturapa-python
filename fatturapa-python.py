@@ -1,6 +1,6 @@
 # coding=utf-8
 ##########################################################
-#  fatturapa-python 0.4                                  #
+#  fatturapa-python 0.5                                  #
 #--------------------------------------------------------#
 #   Quick generation of FatturaPA eInvoice XML files !   #
 #--------------------------------------------------------#
@@ -16,7 +16,7 @@ import json
 import sys
 import re
 
-__VERSION = "0.4"
+__VERSION = "0.5"
 CONF_FILE = "pyFatturaPA.conf.json"
 VAT_DEFAULT = 22.0
 
@@ -243,7 +243,7 @@ def FatturaPA_assemble(user, client, data):
 		'\t\t\t<DatiGeneraliDocumento>',
 		'\t\t\t\t<TipoDocumento>%s</TipoDocumento>'%data['TipoDocumento'],
 		'\t\t\t\t<Divisa>%s</Divisa>'%data['Divisa'],
-		'\t\t\t\t<Data>%s</Data>'%data['Data'],
+		'\t\t\t\t<Data>%s</Data>'%data['Data'].strftime("%Y-%m-%d"),
 		'\t\t\t\t<Numero>%s</Numero>'%data['ProgressivoInvio']])
 	if 'ritenuta' in user.keys() and 'ritenuta' in user.keys():
 		F.extend([
