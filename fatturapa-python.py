@@ -1,6 +1,6 @@
 # coding=utf-8
 ##########################################################
-#  fatturapa-python 0.5                                  #
+#  pyFatturaPA 0.6                                       #
 #--------------------------------------------------------#
 #   Quick generation of FatturaPA eInvoice XML files !   #
 #--------------------------------------------------------#
@@ -16,7 +16,7 @@ import json
 import sys
 import re
 
-__VERSION = "0.5"
+__VERSION = "0.6"
 CONF_FILE = "pyFatturaPA.conf.json"
 VAT_DEFAULT = 22.0
 
@@ -27,30 +27,9 @@ def check_config():
 	return True
 
 def enter_org_data():
-	print('\n')
 	answer = input("P.IVA individuale? Sì/[N]o ")
 	if answer and answer.lower()[0]=='s':	orgname = tuple([str(input("Nome:  ")), input(str("Cognome:  "))])
 	else:	orgname = str(input("Ragione sociale:  "))
-	VATit = str(input("Partita IVA:  "))
-	CF = None
-	while CF==None:
-		CF = str(input("Codice Fiscale (se applicabile):  "))
-		if CF=="":	break
-		elif CF and CFre.match(CF) or (10<len(CF)<17 and CF.isalnum()):	break
-		CF = None
-	email = None
-	while email==None:
-		email = str(input("Indirizzo email (obbligatoriamente PEC se in Italia):  "))
-		if email=="" or emailre.match(email):	break
-		else:	email = None
-	if email:
-		Id = "0000000"
-		print("Indirizzo PEC specificato: identificativo unico impostato a '0000000'.")
-	else:
-		Id = None
-		while not Id:	Id = str(input("Identificativo Unico (se applicabile):  "))
-	if not CF:	CF = None
-	if not Id:	Id = None
 	addr = {	'country':"", 'zip':"", 'addr':None, 'prov':None, 'muni':None	}
 	while len(addr['country'])!=2:
 		addr['country'] = str(input("Sigla a 2 caratteri della nazione (premi [Invio] per Italia):  ")).upper()
@@ -61,16 +40,50 @@ def enter_org_data():
 		while not addr['prov']:
 			prov = str(input("Provincia (sigla a 2 cifre):  ")).upper()
 			if prov in PROVINCES:	addr['prov'] = prov
-		while not addr['muni']:
-			comune = str(input("Comune (nome completo):  "))
-			if comune:	addr['muni'] = comune
+	while not addr['muni']:
+		comune = str(input("Comune (nome completo):  "))
+		if comune:	addr['muni'] = comune
 	else:
-		print("\nATTENZIONE!: Questa versione di supporta solo fatture da/per enti con sede in Italia.")
-		sys.exit(-1)
+		while not (len(addr['zip'])==5 and addr['zip'].isnumeric()):
+			addr['zip'] = input("Zip code:  ").upper()
+		print("ATTENZIONE!: Questa fattura andrà dichiarata nell'\"Esterometro\".\n")
 	while not addr['addr']:
 		addr['addr'] = str(input("Indirizzo (via/piazza/..., *senza* numero civico):  "))
 	addr['#'] = str(input("Numero civico (se applicabile):  "))
-	return {	'name':orgname, 'VAT#':('IT',VATit), 'CF':CF, 'Id':Id, 'addr':addr, 'email':email }
+	for key in ['prov','#']:
+		if not addr[key]:	del addr[key]
+	VATnum = None
+	if addr['country']=="IT":
+		while not VATnum:
+			VATc, VATnum = "IT", str(input("Numero di Partita IVA:  "))
+	elif addr['country'].lower() in EU_MemberStates.keys():
+		while not VATnum:
+			VATc, VATnum = addr['country'], str(input("VAT Number:  "))
+	else:	VATc, VATnum = "OO", "99999999999"
+	CF = None
+	while VATc=="IT" and CF==None:
+		CF = str(input("Codice Fiscale (se applicabile):  "))
+		if CF=="":	break
+		elif CF and CFre.match(CF) or (10<len(CF)<17 and CF.isalnum()):	break
+		CF = None
+	email = None
+	while email==None:
+		email = str(input("Indirizzo email (obbligatoriamente PEC se in Italia):  "))
+		if email=="" or emailre.match(email):	break
+		else:	email = None
+	if addr['country']=="IT":
+		if email:
+			Id = "0000000"
+			print("Indirizzo PEC specificato: identificativo unico impostato a '0000000'.")
+		else:
+			if addr['country']=="IT":	Id = None
+			while not Id:	Id = str(input("Identificativo Unico (se applicabile):  "))
+	else:	Id = "XXXXXXX"
+	if not Id:	Id = None
+	retdict = {	'name':orgname, 'VAT#':(VATc,VATnum), 'CF':CF, 'Id':Id, 'addr':addr, 'email':email }
+	if not CF:	del retdict['CF']
+	if not email:	del retdict['email']
+	return retdict
 
 
 def parse_config():
@@ -201,12 +214,11 @@ def FatturaPA_assemble(user, client, data):
 		'\t\t\t</DatiAnagrafici>',
 		'\t\t\t<Sede>',
 		'\t\t\t\t<Indirizzo>%s</Indirizzo>'%user['addr']['addr']])
-	if '#' in user['addr'].keys():
-		F.append('\t\t\t\t<NumeroCivico>%s</NumeroCivico>'%user['addr']['#'])
+	if '#' in user['addr'].keys():	F.append('\t\t\t\t<NumeroCivico>%s</NumeroCivico>'%user['addr']['#'])
+	if 'zip' in user['addr']:	F.append('\t\t\t\t<CAP>%s</CAP>'%user['addr']['zip'])
+	if 'muni' in user['addr']:	F.append('\t\t\t\t<Comune>%s</Comune>'%user['addr']['muni'])
+	if 'prov' in user['addr']:	F.append('\t\t\t\t<Provincia>%s</Provincia>'%user['addr']['prov'])
 	F.extend([
-		'\t\t\t\t<CAP>%s</CAP>'%user['addr']['zip'],
-		'\t\t\t\t<Comune>%s</Comune>'%user['addr']['muni'],
-		'\t\t\t\t<Provincia>%s</Provincia>'%user['addr']['prov'],
 		'\t\t\t\t<Nazione>%s</Nazione>'%user['addr']['country'],
 		'\t\t\t</Sede>',
 		'\t\t</CedentePrestatore>',
@@ -226,12 +238,11 @@ def FatturaPA_assemble(user, client, data):
 		'\t\t\t</DatiAnagrafici>',
 		'\t\t\t<Sede>',
 		'\t\t\t\t<Indirizzo>%s</Indirizzo>'%client['addr']['addr']])
-	if '#' in client['addr'].keys():
-		F.append('\t\t\t\t<NumeroCivico>%s</NumeroCivico>'%client['addr']['#'])
+	if '#' in client['addr'].keys():	F.append('\t\t\t\t<NumeroCivico>%s</NumeroCivico>'%client['addr']['#'])
+	if 'zip' in client['addr']:	F.append('\t\t\t\t<CAP>%s</CAP>'%client['addr']['zip'])
+	if 'muni' in client['addr']:	F.append('\t\t\t\t<Comune>%s</Comune>'%client['addr']['muni'])
+	if 'prov' in client['addr']:	F.append('\t\t\t\t<Provincia>%s</Provincia>'%client['addr']['prov'])
 	F.extend([
-		'\t\t\t\t<CAP>%s</CAP>'%client['addr']['zip'],
-		'\t\t\t\t<Comune>%s</Comune>'%client['addr']['muni'],
-		'\t\t\t\t<Provincia>%s</Provincia>'%client['addr']['prov'],
 		'\t\t\t\t<Nazione>%s</Nazione>'%client['addr']['country'],
 		'\t\t\t</Sede>',
 		'\t\t</CessionarioCommittente>',
@@ -594,6 +605,10 @@ CFre, EORIre = re.compile(r"[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]"), r
 emailre = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9-._]+@[a-zA-Z0-9][a-zA-Z0-9-._]+")
 IBANre, BICre = re.compile(r"[a-zA-Z]{2}[0-9]{2}[a-zA-Z0-9]{11,30}"), re.compile(r"[A-Z]{6}[A-Z2-9][A-NP-Z0-9]([A-Z0-9]{3}){0,1}")
 
+EU_MemberStates = {
+	'eu':"Europa", 'at':"Austria", 'be':"Belgio", 'bg':"Bulgaria", 'cy':"Cipro", 'cz':"Repubblica Ceca", 'de':"Germania", 'dk':"Danimarca", 'ee':"Estonia", 'el':"Grecia", 'es':"Spagna", 'fi':"Finlandia", 'fr':"Francia", 'hr':"Croazia", 'hu':"Ungheria", 'ie':"Irlanda", 'is':"Islanda", 
+	'it':"Italia", 'li':"Liechtenstein", 'lt':"Lituania", 'lu':"Lussemburgo", 'lv':"Lettonia", 'mt':"Malta", 'nl':"Paesi Bassi", 'no':"Norvegia", 'pl':"Polonia", 'pt':"Portogallo", 'ro':"Romania", 'se':"Svezia", 'si':"Slovenia", 'sk':"Slovacchia", 'uk':"Regno Unito"
+}
 REGIONS, PROVINCES = {
 	'Abruzzo'              :{'AQ':"L'Aquila", 'CH':"Chieti", 'PE':"Pescara", 'TE':"Teramo"},
 	'Basilicata'           :{'MT':"Matera", 'PZ':"Potenza"},
@@ -708,7 +723,7 @@ TipoCessionePrestazione_t = {	'SC':"Sconto", 'PR':"Premio", 'AB':"Abbuono", 'AC'
 
 def main():
 	def print_args():
-		print(" Utilizzo:  %s  emetti | fornitore | inizializza"%sys.argv[0].lower())
+		print(" Utilizzo:  %s  emetti | fornitore | inizializza"%os.path.basename(sys.argv[0]))
 		print("\t\tconsulenza   Genera FatturaPA per consulenza verso fornitore esistente")
 		print("\t\temetti       Genera FatturaPA generica verso fornitore esistente")
 		print("\t\tcommittente  Aggiunge un fornitore (italiano) al database")
@@ -716,7 +731,7 @@ def main():
 		print('\n')
 		sys.exit(9)
 	print("pyFatturaPA %s - Genera rapidamente fatture elettroniche semplici in XML nel formato FatturaPA."%__VERSION)
-	print("GNU GPL v3.0. Maintainer[2019]: Walter Arrighetti <walter.arrighetti@agid.gov.it>\n")
+	print("GNU (GPL) 2019 by Walter Arrighetti  <walter.arrighetti@agid.gov.it>\n")
 	[PROVINCES.extend(list(prov.keys())) for prov in REGIONS.values()]
 	if len(sys.argv) != 2:	print_args()
 	elif sys.argv[1].lower()=="consulenza":	issue_consultancy()
@@ -724,7 +739,7 @@ def main():
 	elif sys.argv[1].lower()=="committente":	add_company()
 	elif sys.argv[1].lower()=="inizializza":	create_config()
 	else:	print_args()
-	sys.exit(9)
+	sys.exit(0)
 
 
 if __name__ == "__main__":	main()
