@@ -715,7 +715,7 @@ def main():
 		print("\t\tinizializza  Inizializza un nuovo database con i tuoi dati")
 		print('\n')
 		sys.exit(9)
-	print("%s %s - Genera rapidamente fatture elettroniche semplici in XML nel formato FatturaPA."%(sys.argv[0].upper(),__VERSION))
+	print("pyFatturaPA %s - Genera rapidamente fatture elettroniche semplici in XML nel formato FatturaPA."%__VERSION)
 	print("GNU GPL v3.0. Maintainer[2019]: Walter Arrighetti <walter.arrighetti@agid.gov.it>\n")
 	[PROVINCES.extend(list(prov.keys())) for prov in REGIONS.values()]
 	if len(sys.argv) != 2:	print_args()
