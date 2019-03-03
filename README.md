@@ -17,7 +17,7 @@ Tali fatture elettroniche sono pronte per essere *firmate* (da parte del cedente
 
 ### Sintassi
 ```
-pyFatturaPA   consulenza | emetti | committente | inizializza
+fatturapa-python   consulenza | emetti | committente | inizializza
 ```
 Il tool effettua quattro possibili operazioni:
 
