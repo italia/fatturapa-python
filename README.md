@@ -1,4 +1,4 @@
-# fatturapa-python
+# FatturaPA-python
 Tool for quick, command-line generation of simple e-Invoice compatible with the Italian-standard, [FatturaPA](https://www.fatturapa.gov.it). This is a [developers.italia.it](https://developers.italia.it/) Community Edition, version statically forked from [github.com/walter-arrighetti/](https://github.com/walter-arrighetti)[**pyFatturaPA**](https://github.com/walter-arrighetti/pyFatturaPA).
 It is a typical, lazy sunday afternoon exercise, aimed at self-generating e-invoices to private companies as an individual freelance consultant.A rudimetary command-line generator of XML e-invoices to be later electronically signed or sealed. It generates a JSON database of clients (with VAT# and full invoicing information). More and more complex invoicing scenarios will be added in future releases.
 
