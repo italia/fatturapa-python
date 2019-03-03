@@ -11,7 +11,7 @@ Due to the validity of such e-invoicing standard being limited to Italian financ
 ### Descrizione
 Questo tool viene inizialmente impiegato per costituire un database in JSON contenente un elenco essenziale di committenti (ove sono registrate le loro informazioni fiscali quali P.IVA, indirizzo PEC, C.F., ecc.). Il database, chiamato `pyFatturaPA.json`, deve trovarsi nella medesima cartella del tool, così come si consiglia di eseguirlo da tale cartella.
 
-Sempre mediante lo stesso (cfr. sezione **Sintassi**), si possono generare singole fatture elettroniche in formato XML che rispettano lo standard [*FatturaPA* 1.2.1](https://www.fatturapa.gov.it/export/fatturazione/it/normativa/f-2.htm). La sintassi del nome del file generato è `IT`_partitaIVA_`_`_IdProg_`.xml`, cioè combinando il numero di P.IVA emettente e l'identificativo univoco di quella fattura elettronica specifica.
+Sempre mediante lo stesso (cfr. sezione **Sintassi**), si possono generare singole fatture elettroniche in formato XML che rispettano lo standard [*FatturaPA* 1.2.1](https://www.fatturapa.gov.it/export/fatturazione/it/normativa/f-2.htm). La sintassi del nome del file generato è `IT`*`numPartitaIVA`*`_`*`numFattura`*`.xml`, cioè combinando il numero di P.IVA emettente e l'identificativo univoco di quella fattura elettronica specifica.
 
 Tali fatture elettroniche sono pronte per essere *firmate* (da parte del cedente/prestatore) ovvero *sigillate elettronicamente* (da parte dell'[Agenzia delle Entrate](https://www.agenziaentrate.gov.it)), per poi essere inviate al [*Sistema di Interscambio* dell'Agenzia delle Entrate](https://ivaservizi.agenziaentrate.gov.it/portale/) stessa e, da li, in conservazione sostitutiva.
 
@@ -25,8 +25,16 @@ Il tool effettua quattro possibili operazioni:
  
  `committente` permette di aggiungere al database JSON dei fornitori/committenti un'ulteriore voce, che sarà poi indicizzata mediante codice a 3 cifre alfanumeriche. Non è attualmente possibile rimuovere un cessionario/committente.
  
- `emetti` genera una singola fattura con opzioni piuttosto generiche; sono infatti supportate diverse tipologie di fattura/ritenuta/nota, esigibilità, aliquota, condizioni e modalità di pagamento, nonché causali, quantità e unità di misura per voci multiple.
+ `emetti` genera una singola fattura con opzioni piuttosto complete; sono infatti supportate diverse tipologie di fattura/ritenuta/nota, esigibilità, aliquota, condizioni e modalità di pagamento, nonché causali, quantità e unità di misura per voci multiple nella fatturazione. Sono supportate fatture elettroniche verso paesu UE ed extra UE. L'eventuale IBAN ove pagare la fatturazione (in caso di pagamenti tramite bonifico) può essere preso automaticamente dalle informazioni del cedente/prestatore (nel database JSON), immesso manualmente, ovvero omesso.
  
- `consulenza` è una versione specializzata del precedente; crea ancor più rapidamente una singola fattura, relativa ad una prestazione senza alcuna cessazione/trasferimento di beni (e.g. una o più voci di consulenza) da parte di un professionista soggetto ad IVA (22%), alla cassa INPS (4%) e a ritenuta d'acconto (-20%). Dopo aver selezionato il committente, è possibile generarla inserendo solo 4 valori.
+ `consulenza` è una versione specializzata del precedente; crea ancor più rapidamente una singola fattura, relativa ad una prestazione senza alcuna cessazione/trasferimento di beni, da parte di un professionista soggetto ad IVA (22%), alla cassa INPS (4%) e a ritenuta d'acconto (-20%). La generazione della fattura elettronica avviene inserendo solamente i **6** campi generici (*obbligatori* se in corsivo):
+  * *sigla identificativa del committente* (3 caratteri, così come indicata nel database JSON dei committenti/cessionari),
+  * *numero identificativo progressivo della fattura*,
+  * numero d'ordine del committente cio la fattura fa riferimento,
+  * giorni ammessi per il pagamento dall'emissione,
+  * codice IBAN cui intestare il pagamento (qualora non  compreso nelle informazioni del prestatore d'opera nel database),
+  * causale complessiva della fattura;
+
+più *almeno una* voce di fatturazione, ciascuna corrispondente a distinte afferenti la medesima fattura.
 
 ***DISCLAIMER***: L'autore nega ogni responsabilità, diretta o indiretta, circa l'uso del software e dei suoi derivati. In particolare non viene fatta alcuna presunzione di validità e conformità delle evidenze informatiche prodotte con gli standard tecnici di riferimento. Inoltre, il software è fornito *così com'è*, secondo i termini della licenza utilizzata.
