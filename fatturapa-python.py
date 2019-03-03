@@ -1,6 +1,6 @@
 # coding=utf-8
 ##########################################################
-#  fatturapa-python 0.6                                  #
+#  fatturapa-python 0.7                                  #
 #--------------------------------------------------------#
 #   Quick generation of FatturaPA eInvoice XML files !   #
 #--------------------------------------------------------#
@@ -16,7 +16,7 @@ import json
 import sys
 import re
 
-__VERSION = "0.6"
+__VERSION = "0.7"
 CONF_FILE = "pyFatturaPA.conf.json"
 VAT_DEFAULT = 22.0
 
@@ -80,9 +80,15 @@ def enter_org_data():
 			while not Id:	Id = str(input("Identificativo Unico (se applicabile):  "))
 	else:	Id = "XXXXXXX"
 	if not Id:	Id = None
-	retdict = {	'name':orgname, 'VAT#':(VATc,VATnum), 'CF':CF, 'Id':Id, 'addr':addr, 'email':email }
-	if not CF:	del retdict['CF']
-	if not email:	del retdict['email']
+	while True:
+		iban = input("Inserire codice IBAN ove effettuare prioritariamente i pagamenti ([Invio] per saltare): ").strip()
+		if not iban:	break
+		if IBANre.match(iban.strip()):
+			iban = iban.upper().replace(' ','').replace('-','')
+			break
+	retdict = {	'name':orgname, 'VAT#':(VATc,VATnum), 'CF':CF, 'Id':Id, 'addr':addr, 'email':email, 'IBAN':iban }
+	for key in ['CF','email','IBAN']:
+		if not retdict[key]:	del retdict[key]
 	return retdict
 
 
@@ -195,7 +201,7 @@ def FatturaPA_assemble(user, client, data):
 		'\t\t\t<FormatoTrasmissione>%s</FormatoTrasmissione>'%data['FormatoTrasmissione'],
 		'\t\t\t<CodiceDestinatario>%s</CodiceDestinatario>'%client['Id']
 	]
-	if ('email' in user.keys()) and client['Id']=="0000000":	F.append('\t\t\t<PECDestinatario>%s</PECDestinatario>'%client['email'])
+	if ('email' in client.keys()) and client['Id']=="0000000":	F.append('\t\t\t<PECDestinatario>%s</PECDestinatario>'%client['email'])
 	F.extend([
 		'\t\t</DatiTrasmissione>',
 		'\t\t<CedentePrestatore>',
@@ -284,7 +290,7 @@ def FatturaPA_assemble(user, client, data):
 				for l in sorted(data['ref']['##']):
 					F.append('\t\t\t\t<RiferimentoNumeroLinea>%d</RiferimentoNumeroLinea>'%l)
 			F.append('\t\t\t\t<IdDocumento>%s</IdDocumento>'%data['ref']['Id']),
-			F.append('\t\t\t<DatiOrdineAcquisto>')
+			F.append('\t\t\t</DatiOrdineAcquisto>')
 		for reftype in ['Contratto','Convenzione','Ricezione','FattureCollegate']:
 			if reftype in data['ref'].keys():
 				F.append('\t\t\t\t<Dati%s>%s</Dati%s>'%(reftype,data['ref'][reftype],reftype))
@@ -322,12 +328,19 @@ def FatturaPA_assemble(user, client, data):
 	if 'pagamento' in data.keys():
 		F.extend([
 			'\t\t<DatiPagamento>',
-			'\t\t\t<CondizioniPagamento>%s</CondizioniPagamento>'%data['pagamento']['Condizioni'],
+			'\t\t\t<CondizioniPagamento>%s</CondizioniPagamento>'%data['pagamento']['condizioni'],
 			'\t\t\t<DettaglioPagamento>',
-			'\t\t\t\t<ModalitaPagamento>%s</ModalitaPagamento>'%data['pagamento']['mod'],
-			'\t\t\t\t<ImportoPagamento>%.02f</ImportoPagamento>'%data['total']['TOTALE']])
+			'\t\t\t\t<ModalitaPagamento>%s</ModalitaPagamento>'%data['pagamento']['mod']])
 		if 'exp' in data['pagamento'].keys():
-			F.append('\t\t\t\t<DataScadenzaPagamento>%s</DataScadenzaPagamento>'%data['pagamento']['exp'].strftime("%Y-%m-%d"))
+			if type(data['pagamento']['exp'])==type(1):
+				F.extend([
+					'\t\t\t\t<DataRiferimentoTerminiPagamento>%s</DataRiferimentoTerminiPagamento>'%data['Data'].strftime("%Y-%m-%d"),
+					'\t\t\t\t<GiorniTerminiPagamento>%d</GiorniTerminiPagamento>'%data['pagamento']['exp']])
+			elif data['pagamento']['mod'] in ['TP01']:
+				F.append('\t\t\t\t<DataScadenzaPagamento>%s</DataScadenzaPagamento>'%data['pagamento']['exp'].strftime("%Y-%m-%d"))
+		F.append('\t\t\t\t<ImportoPagamento>%.02f</ImportoPagamento>'%data['total']['TOTALE'])
+		if 'IBAN' in data['pagamento'].keys():
+			F.append('\t\t\t\t<IBAN>%s</IBAN>'%data['pagamento']['IBAN'])
 		F.extend([
 			'\t\t\t</DettaglioPagamento>',
 			'\t\t</DatiPagamento>'])
@@ -376,29 +389,29 @@ def issue_consultancy():
 		sys.exit(-5)
 	client = clients[org];	del clients
 	data['FormatoTrasmissione'], data['TipoDocumento'], data['ProgressivoInvio'] = 'FPR12', 'TD01', None
-	data['Divisa'], data['EsigibilitaIVA'], data['pagamento'] = "EUR", 'I', {	'Condizioni':'TP02', 'mod':'MP05'	}
+	data['Divisa'], data['EsigibilitaIVA'], data['pagamento'] = "EUR", 'I', {	'condizioni':'TP02', 'mod':'MP05'	}
+	data['Data'] = datetime.date.today()
+	aliquotaIVA = VAT_DEFAULT
 	while not data['ProgressivoInvio']:
 		data['ProgressivoInvio'] = input("Inserire il numero identificativo (progressivo) della fattura:  ")
 	data['num'] = data['ProgressivoInvio']
-	data['Data'] = None
+	answ = input("Indicare il numero d'Ordine facoltativo del cessionario/committente, ovvero premere [Invio]:  ")
+	if answ:	data['ref'] = { 'Id':answ	}
+	data['total'] = {	'aliquota':aliquotaIVA, 'subtotale':0., 'imponibile':0.		}
 	while True:
-		datetmp = input("Data fatturazione nel formato GG-MM-AAAA (per oggi premere [Invio]):  ")
-		if not datetmp:
-			data['Data'] = datetime.date.today()
+		delaydays = input("Giorni ammessi per il pagamento dall'emissione (premere [Invio] per nessuno):  ")
+		if not delaydays:	break
+		elif delaydays.isdigit() and eval(delaydays)>0:
+			data['pagamento']['exp'] = eval(delaydays)
 			break
-		else:
-			try:
-				data['Data'] = datetime.datetime.strptime(datetmp,"%d-%m-%Y")
+	if 'IBAN' in user.keys():	data['pagamento']['IBAN'] = user['IBAN']
+	else:
+		while True:
+			iban = input("Inserire codice IBAN ove effettuare il pagamento (oppure [Invio] per saltare): ").strip()
+			if not iban:	break
+			if IBANre.match(iban.strip()):
+				data['pagamento']['IBAN'] = iban.upper().replace(' ','').replace('-','')
 				break
-			except:	pass
-	#answ = input("Se applicabile, indicare numero d'Ordine richiesto dal cessionario/committente, ovvero premere [Invio]:  ")
-	#if answ:	data['ref'] = { 'Id':answ	}
-	while True:
-		aliquotaIVA = input("Aliquota IVA (default: %d%%; indicare \"0\" se non applcabile):  "%user['cassa']['IVA'])
-		if not aliquotaIVA:	aliquotaIVA = VAT_DEFAULT;	break
-		elif aliquotaIVA.isnumeric():	aliquotaIVA = eval(aliquotaIVA);	break
-	data['total'] = {	'aliquota':aliquotaIVA, 'subtotale':0., 'imponibile':0.	}
-	answ = None
 	data['causale'] = input("Causale dell'intera fattura (max. 400 caratteri):  ")[:400]
 	if not data['causale']:	del data['causale']
 	data['#'], l, = [], 1
@@ -439,18 +452,22 @@ def issue_consultancy():
 		print(" * ERROR!: Non sono state inserite voci nella fattura (è necessaria almeno una voce).")
 		sys.exit(-6)
 	subtotale = data['total']['subtotale']
+	####	Calcolo della Rivalsa INPS
 	if 'cassa' in user.keys():
 		data['total']['cassa'] = subtotale * (user['cassa']['aliquota']/100)
 	else:	data['total']['imposta'] = 0
 	data['cassa'] = {	'importo':data['total']['cassa'], 'imponibile':subtotale, 'aliquota':user['cassa']['aliquota']	}
 	subtotale += data['cassa']['importo']
 	data['total']['imponibile'] = subtotale
+	####	Calcolo della Ritenuta d'Acconto
 	if 'ritenuta' in user.keys():
 		data['total']['ritenuta'] = -1 * subtotale * (user['ritenuta']['aliquota']/100)	# = user['ritenuta']['importo']
 	else:	data['total']['ritenuta'] = 0
 	data['ritenuta'] = {	'importo':data['total']['ritenuta'], 'imponibile':subtotale, 'aliquota':user['ritenuta']['aliquota']	}
 	subtotale += data['total']['ritenuta']
+	####	Calcolo dell'Imponibile Effettivo
 	data['total']['imposta'] = data['total']['imponibile'] * (data['total']['aliquota']/100)
+	####	Calcolo dell'Importo Totale
 	subtotale += data['total']['imposta']
 	data['total']['TOTALE'] = max(0,subtotale)
 	if 'pagamento' in data.keys():
@@ -493,7 +510,7 @@ def issue_invoice():
 				data['Data'] = datetime.datetime.strptime(datetmp,"%d-%m-%Y")
 				break
 			except:	pass
-	answ = input("Se applicabile, indicare numero d'Ordine richiesto dal cessionario/committente, ovvero premere [Invio]:  ")
+	answ = input("Indicare il numero d'Ordine facoltativo del cessionario/committente, ovvero premere [Invio]:  ")
 	if answ:	data['ref'] = { 'Id':answ	}
 	#answer = input("Il vettore della fattura è il cliente [S]ì/[N]o ")
 	#if answer and answer.lower()[0]=='n':
@@ -512,26 +529,42 @@ def issue_invoice():
 		}
 	answ = None
 	data['pagamento'] = {
-		'Condizioni':_enum_selection(CondizioniPagamento_t, "condizioni di pagamento", 'TP02'),
+		'condizioni':_enum_selection(CondizioniPagamento_t, "condizioni di pagamento", 'TP02'),
 		'mod':_enum_selection(ModalitaPagamento_t, "modalità di pagamento", 'MP05')	
 		}
-	if data['pagamento']['Condizioni'] == 'TP01':
+	if data['pagamento']['condizioni'] in ['TP01']:
 		exp = None
 		while not exp.isinstance(datetime.date):
 			try:	exp = datetime.strptime(input("Indicare la scadenza della rata (formato GG-MM-AAA):  "),"%d-%m-%Y")
 			except:	continue
 			data['pagamento']['exp'] = datetime.datetime.strptime(exp,"%d-%m-%Y")
-	#else:
-	#	while True:
-	#		datetmp = input("Scadenza di pagamento della fattura nel formato GG-MM-AAAA (premere [Invio] per +30 giorni):  ")
-	#		if not datetmp:
-	#			data['pagamento']['exp'] = data['Data'] + datetime.timedelta(days=30)
-	#			break
-	#		else:
-	#			try:
-	#				data['pagamento']['exp'] = datetime.datetime.strptime(datetmp,"%d-%m-%Y")
-	#				break
-	#			except:	pass
+	elif data['pagamento']['condizioni'] in ['TP02']:
+		while True:
+			delaydays = input("Giorni ammessi per il pagamento dall'emissione (premere [Invio] per nessuno):  ")
+			if not delaydays:	break
+			elif delaydays.isdigit() and eval(delaydays)>0:
+				data['pagamento']['exp'] = eval(delaydays)
+				break
+	if data['pagamento']['mod'] in ['MP05']:
+		if 'IBAN' in user.keys():
+			print("Premere [Invio] per inserire automaticamente l'IBAN trovato nelle informazioni")
+			print("del cedente/prestatore, inserire un IBAN alternativo, ovvero digitare \"No\".")
+			while True:
+				iban = input("[Invio] / cod.IBAN / [N]o: ")
+				if not iban:
+					data['pagamento']['IBAN'] = user['IBAN']
+					break
+				elif IBANre.match(iban.strip()):
+					data['pagamento']['IBAN'] = iban.upper().replace(' ','').replace('-','')
+					break
+				elif iban.upper().startswith('N'):	break
+		else:
+			while True:
+				iban = input("Inserire codice IBAN ove effettuare il pagamento (oppure [Invio] per saltare): ").strip()
+				if not iban:	break
+				if IBANre.match(iban.strip()):
+					data['pagamento']['IBAN'] = iban.upper().replace(' ','').replace('-','')
+					break
 	data['causale'] = input("Causale dell'intera fattura (max. 400 caratteri):  ")[:400]
 	if not data['causale']:	del data['causale']
 	data['#'], l, = [], 1
@@ -603,7 +636,7 @@ def issue_invoice():
 
 CFre, EORIre = re.compile(r"[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]"), re.compile(r"[a-zA-Z0-9]{13,17}")
 emailre = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9-._]+@[a-zA-Z0-9][a-zA-Z0-9-._]+")
-IBANre, BICre = re.compile(r"[a-zA-Z]{2}[0-9]{2}[a-zA-Z0-9]{11,30}"), re.compile(r"[A-Z]{6}[A-Z2-9][A-NP-Z0-9]([A-Z0-9]{3}){0,1}")
+IBANre, BICre = re.compile(r"[a-zA-Z]{2}[- ]?[0-9]{2}[- ]?(?:[a-zA-Z0-9][- ]?){11,30}"), re.compile(r"[A-Z]{6}[A-Z2-9][A-NP-Z0-9]([A-Z0-9]{3}){0,1}")
 
 EU_MemberStates = {
 	'eu':"Europa", 'at':"Austria", 'be':"Belgio", 'bg':"Bulgaria", 'cy':"Cipro", 'cz':"Repubblica Ceca", 'de':"Germania", 'dk':"Danimarca", 'ee':"Estonia", 'el':"Grecia", 'es':"Spagna", 'fi':"Finlandia", 'fr':"Francia", 'hr':"Croazia", 'hu':"Ungheria", 'ie':"Irlanda", 'is':"Islanda", 
