@@ -6,6 +6,8 @@ It is a typical, lazy sunday afternoon exercise, aimed at self-generating e-invo
 
 Due to the validity of such e-invoicing standard being limited to Italian finance, the README continues in Italian.
 
+<img src="opt/pyFatturaPA_icon.png" />
+
 ### Descrizione
 Questo tool viene inizialmente impiegato per costituire un database in JSON contenente un elenco essenziale di committenti (ove sono registrate le loro informazioni fiscali quali P.IVA, indirizzo PEC, C.F., ecc.). Il database, chiamato `pyFatturaPA.json`, deve trovarsi nella medesima cartella del tool, così come si consiglia di eseguirlo da tale cartella.
 
