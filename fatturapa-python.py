@@ -1,6 +1,6 @@
 # coding=utf-8
 ##########################################################
-#  fatturapa-python 0.7                                  #
+#  fatturapa-python 0.8                                  #
 #--------------------------------------------------------#
 #   Quick generation of FatturaPA eInvoice XML files !   #
 #--------------------------------------------------------#
@@ -16,7 +16,7 @@ import json
 import sys
 import re
 
-__VERSION = "0.7"
+__VERSION = "0.8"
 CONF_FILE = "pyFatturaPA.conf.json"
 VAT_DEFAULT = 22.0
 
@@ -27,48 +27,48 @@ def check_config():
 	return True
 
 def enter_org_data():
-	answer = input("P.IVA individuale? Sì/[N]o ")
-	if answer and answer.lower()[0]=='s':	orgname = tuple([str(input("Nome:  ")), input(str("Cognome:  "))])
-	else:	orgname = str(input("Ragione sociale:  "))
+	answer = XML_input("P.IVA individuale? Sì/[N]o ")
+	if answer and answer.lower()[0]=='s':	orgname = tuple([str(XML_input("Nome:  ")), XML_input(str("Cognome:  "))])
+	else:	orgname = str(XML_input("Ragione sociale:  "))
 	addr = {	'country':"", 'zip':"", 'addr':None, 'prov':None, 'muni':None	}
 	while len(addr['country'])!=2:
-		addr['country'] = str(input("Sigla a 2 caratteri della nazione (premi [Invio] per Italia):  ")).upper()
+		addr['country'] = str(XML_input("Sigla a 2 caratteri della nazione (premi [Invio] per Italia):  ")).upper()
 		if not addr['country']:	addr['country'] = "IT"
 	if addr['country']=="IT":
 		while not (len(addr['zip'])==5 and addr['zip'].isnumeric()):
-			addr['zip'] = input("CAP (5 cifre):  ").upper()
+			addr['zip'] = XML_input("CAP (5 cifre):  ").upper()
 		while not addr['prov']:
-			prov = str(input("Provincia (sigla a 2 cifre):  ")).upper()
+			prov = str(XML_input("Provincia (sigla a 2 cifre):  ")).upper()
 			if prov in PROVINCES:	addr['prov'] = prov
 	while not addr['muni']:
-		comune = str(input("Comune (nome completo):  "))
+		comune = str(XML_input("Comune (nome completo):  "))
 		if comune:	addr['muni'] = comune
 	else:
 		while not (len(addr['zip'])==5 and addr['zip'].isnumeric()):
-			addr['zip'] = input("Zip code:  ").upper()
+			addr['zip'] = XML_input("Zip code:  ").upper()
 		print("ATTENZIONE!: Questa fattura andrà dichiarata nell'\"Esterometro\".\n")
 	while not addr['addr']:
-		addr['addr'] = str(input("Indirizzo (via/piazza/..., *senza* numero civico):  "))
-	addr['#'] = str(input("Numero civico (se applicabile):  "))
+		addr['addr'] = str(XML_input("Indirizzo (via/piazza/..., *senza* numero civico):  "))
+	addr['#'] = str(XML_input("Numero civico (se applicabile):  "))
 	for key in ['prov','#']:
 		if not addr[key]:	del addr[key]
 	VATnum = None
 	if addr['country']=="IT":
 		while not VATnum:
-			VATc, VATnum = "IT", str(input("Numero di Partita IVA:  "))
+			VATc, VATnum = "IT", str(XML_input("Numero di Partita IVA:  "))
 	elif addr['country'].lower() in EU_MemberStates.keys():
 		while not VATnum:
-			VATc, VATnum = addr['country'], str(input("VAT Number:  "))
+			VATc, VATnum = addr['country'], str(XML_input("VAT Number:  "))
 	else:	VATc, VATnum = "OO", "99999999999"
 	CF = None
 	while VATc=="IT" and CF==None:
-		CF = str(input("Codice Fiscale (se applicabile):  "))
+		CF = str(XML_input("Codice Fiscale (se applicabile):  "))
 		if CF=="":	break
 		elif CF and CFre.match(CF) or (10<len(CF)<17 and CF.isalnum()):	break
 		CF = None
 	email = None
 	while email==None:
-		email = str(input("Indirizzo email (obbligatoriamente PEC se in Italia):  "))
+		email = str(XML_input("Indirizzo email (obbligatoriamente PEC se in Italia):  "))
 		if email=="" or emailre.match(email):	break
 		else:	email = None
 	if addr['country']=="IT":
@@ -77,11 +77,11 @@ def enter_org_data():
 			print("Indirizzo PEC specificato: identificativo unico impostato a '0000000'.")
 		else:
 			if addr['country']=="IT":	Id = None
-			while not Id:	Id = str(input("Identificativo Unico (se applicabile):  "))
+			while not Id:	Id = str(XML_input("Identificativo Unico (se applicabile):  "))
 	else:	Id = "XXXXXXX"
 	if not Id:	Id = None
 	while True:
-		iban = input("Inserire codice IBAN ove effettuare prioritariamente i pagamenti ([Invio] per saltare): ").strip()
+		iban = XML_input("Inserire codice IBAN ove effettuare prioritariamente i pagamenti ([Invio] per saltare): ").strip()
 		if not iban:	break
 		if IBANre.match(iban.strip()):
 			iban = iban.upper().replace(' ','').replace('-','')
@@ -128,7 +128,7 @@ def	add_company():
 	if not user:	return False
 	orgname = ""
 	while len(orgname)!=3 or not orgname.isalnum() or orgname in clients.keys():
-		orgname = str(input("Sigla di 3 caratteri alfanumerici per la nuova organizzazione:  ")).upper()
+		orgname = str(XML_input("Sigla di 3 caratteri alfanumerici per la nuova organizzazione:  ")).upper()
 	new_client = enter_org_data()
 	clients[orgname] = new_client
 	write_config(user, clients, append=False)
@@ -140,30 +140,30 @@ def create_config():
 	answ = None
 	user['RegimeFiscale'] = _enum_selection(RegimeFiscale_t, "regime fiscale (ex DPR 633/1972)", 'RF01')
 	while not answ:
-		answ = input("L'utente (in qualità di cedente/prestatore) è soggetto a ritenuta? [S]ì/No ")
+		answ = XML_input("L'utente (in qualità di cedente/prestatore) è soggetto a ritenuta? [S]ì/No ")
 		if (not answ) or answ[0].lower()=="s":
 			answ = "Sì"
 			user['ritenuta'] = {'aliquota':None, 'causale':None}
 			if type(user['name'])==type(""):	user['ritenuta']['tipo'] = 'RT02'
 			else:	user['ritenuta']['tipo'] = 'RT01'
 			while not user['ritenuta']['aliquota'] or user['ritenuta']['aliquota']<0 or user['ritenuta']['aliquota']>100:
-				aliq = input("Inserire %% aliquota della ritenuta (e.g. \"%.2f\"):  "%VAT_DEFAULT)
+				aliq = XML_input("Inserire %% aliquota della ritenuta (e.g. \"%.2f\"):  "%VAT_DEFAULT)
 				if aliq.isnumeric():	user['ritenuta']['aliquota'] = eval(aliq)
 				else:	user['ritenuta']['aliquota'] = VAT_DEFAULT
 			while not user['ritenuta']['causale'] or user['ritenuta']['causale'] not in CausalePagamento_t:
-				user['ritenuta']['causale'] = input("Inserire sigla della causale di pagamento ('A...Z' ovvero 'L|M|O|V1':  ").upper()
+				user['ritenuta']['causale'] = XML_input("Inserire sigla della causale di pagamento ('A...Z' ovvero 'L|M|O|V1':  ").upper()
 		elif answ and answ[0].lower()=="n":
 			del user['ritenuta']
 			answ = None;	break
 		else: answ = None;	continue
 	answ = None
 	while not answ:
-		answ = input("Si è iscritti ad una cassa previdenziale? [S]ì/No ")
+		answ = XML_input("Si è iscritti ad una cassa previdenziale? [S]ì/No ")
 		if (not answ) or answ[0].lower()=="s":
 			answ = "Sì"
 			user['cassa'] = {
 				'tipo':_enum_selection(TipoCassa_t, "cassa di appartenenza", 'TC22'),
-				'aliquota':eval(input("Indicare l'aliquota contributo cassa:  ")),
+				'aliquota':eval(XML_input("Indicare l'aliquota contributo cassa:  ")),
 				'IVA':VAT_DEFAULT	# Questa linea verrà sostiuita da un lookup automatico sul RegimeFiscaleIVA_t in base al valore di user['RegimeFiscale']
 			}
 		elif answ and answ[0].lower()=="n":
@@ -364,13 +364,13 @@ def _enum_selection(enumtype, enumname=None, default=None):
 	answ = None
 	if default and default in keys:
 		while True:
-			answ = input(question)
+			answ = XML_input(question)
 			if not answ:	return default
 			elif answ.isnumeric() and 1<=eval(answ)<=len(keys):
 				return keys[eval(answ)-1]
 			else:	answ = None
 	else:
-		while not (answ and answ.isnumeric() and 1<=eval(answ)<=len(keys)):	answ = input(question)
+		while not (answ and answ.isnumeric() and 1<=eval(answ)<=len(keys)):	answ = XML_input(question)
 	return keys[eval(answ)-1]
 
 
@@ -383,7 +383,7 @@ def issue_consultancy():
 	if not clients:
 		print(" * ERRORE!: Database dei clienti vuoto. Deve essere inserito almeno un cliente tramite l'argomento 'fornitore'.")
 		sys.exit(-4)
-	org = input("Inserire la sigla identificativa (3 caratteri) del cliente nel database:  ").upper()
+	org = XML_input("Inserire la sigla identificativa (3 caratteri) del cliente nel database:  ").upper()
 	if org not in clients.keys():
 		print(" * ERRORE!: Cliente '%s' non trovato nel database."%org)
 		sys.exit(-5)
@@ -393,13 +393,13 @@ def issue_consultancy():
 	data['Data'] = datetime.date.today()
 	aliquotaIVA = VAT_DEFAULT
 	while not data['ProgressivoInvio']:
-		data['ProgressivoInvio'] = input("Inserire il numero identificativo (progressivo) della fattura:  ")
+		data['ProgressivoInvio'] = XML_input("Inserire il numero identificativo (progressivo) della fattura:  ")
 	data['num'] = data['ProgressivoInvio']
-	answ = input("Indicare il numero d'Ordine facoltativo del cessionario/committente, ovvero premere [Invio]:  ")
+	answ = XML_input("Indicare il numero d'Ordine facoltativo del cessionario/committente, ovvero premere [Invio]:  ")
 	if answ:	data['ref'] = { 'Id':answ	}
 	data['total'] = {	'aliquota':aliquotaIVA, 'subtotale':0., 'imponibile':0.		}
 	while True:
-		delaydays = input("Giorni ammessi per il pagamento dall'emissione (premere [Invio] per nessuno):  ")
+		delaydays = XML_input("Giorni ammessi per il pagamento dall'emissione (premere [Invio] per nessuno):  ")
 		if not delaydays:	break
 		elif delaydays.isdigit() and eval(delaydays)>0:
 			data['pagamento']['exp'] = eval(delaydays)
@@ -407,12 +407,12 @@ def issue_consultancy():
 	if 'IBAN' in user.keys():	data['pagamento']['IBAN'] = user['IBAN']
 	else:
 		while True:
-			iban = input("Inserire codice IBAN ove effettuare il pagamento (oppure [Invio] per saltare): ").strip()
+			iban = XML_input("Inserire codice IBAN ove effettuare il pagamento (oppure [Invio] per saltare): ").strip()
 			if not iban:	break
 			if IBANre.match(iban.strip()):
 				data['pagamento']['IBAN'] = iban.upper().replace(' ','').replace('-','')
 				break
-	data['causale'] = input("Causale dell'intera fattura (max. 400 caratteri):  ")[:400]
+	data['causale'] = XML_input("Causale dell'intera fattura (max. 400 caratteri):  ")[:400]
 	if not data['causale']:	del data['causale']
 	data['#'], l, = [], 1
 	while True:
@@ -421,14 +421,14 @@ def issue_consultancy():
 			vocestr = "Prezzo unitario della voce #%d"%l
 			if l > 1:	vocestr += " ([Invio] se le voci fattura sono terminate)"
 			vocestr += ":  "
-			pricetmp = input(vocestr)
+			pricetmp = XML_input(vocestr)
 			if pricetmp and pricetmp.isnumeric():
 				price = eval(pricetmp);	break
 			elif not pricetmp and l>1:	break
 		if not pricetmp:	l -= 1;	break
 		qty, vat = None, None
 		while True:
-			qtytmp = input("Quantità della voce #%d  [default: 1]:  "%l)
+			qtytmp = XML_input("Quantità della voce #%d  [default: 1]:  "%l)
 			if qtytmp and qtytmp.isnumeric():
 				qty = eval(qtytmp)
 				if qty <= 0:	qty = None
@@ -436,10 +436,10 @@ def issue_consultancy():
 			elif not qtytmp:	break
 		if qty:
 			total = price * qty
-			unit = input("Unità di misura della voce #%d (premere [Invio] per nessuna):  "%l)
+			unit = XML_input("Unità di misura della voce #%d (premere [Invio] per nessuna):  "%l)
 		else:	total, unit = price, None
 		data['total']['subtotale'] += total
-		descr = input("Descrizione della voce #%d:  "%l)[:1000]
+		descr = XML_input("Descrizione della voce #%d:  "%l)[:1000]
 		line = {'linea':l,	'price':price, 'total':total, 'descr':descr	}
 		if qty:
 			line['Qty'] = qty
@@ -483,7 +483,7 @@ def issue_invoice():
 	if not clients:
 		print(" * ERRORE!: Database dei clienti vuoto. Deve essere inserito almeno un cliente tramite l'argomento 'fornitore'.")
 		sys.exit(-4)
-	org = input("Inserire la sigla identificativa (3 caratteri) del cliente nel database:  ").upper()
+	org = XML_input("Inserire la sigla identificativa (3 caratteri) del cliente nel database:  ").upper()
 	if org not in clients.keys():
 		print(" * ERRORE!: Cliente '%s' non trovato nel database."%org)
 		sys.exit(-5)
@@ -492,16 +492,16 @@ def issue_invoice():
 	data['TipoDocumento'] = _enum_selection(Documento_t, "tipologia di documento", 'TD01')
 	data['ProgressivoInvio'] = None
 	while not data['ProgressivoInvio']:
-		data['ProgressivoInvio'] = input("Inserire il numero identificativo (progressivo) della fattura:  ")
+		data['ProgressivoInvio'] = XML_input("Inserire il numero identificativo (progressivo) della fattura:  ")
 	#####################
 	data['num'] = data['ProgressivoInvio']
 	data['Divisa'] = ""
 	while not (data['Divisa'] and len(data['Divisa'])==3):
-		data['Divisa'] = input("Inserire la divisa (3 caratteri, default: EUR):  ")
+		data['Divisa'] = XML_input("Inserire la divisa (3 caratteri, default: EUR):  ")
 		if not data['Divisa']:	data['Divisa'] = "EUR"
 	data['Data'] = None
 	while True:
-		datetmp = input("Data fatturazione nel formato GG-MM-AAAA (per oggi premere [Invio]):  ")
+		datetmp = XML_input("Data fatturazione nel formato GG-MM-AAAA (per oggi premere [Invio]):  ")
 		if not datetmp:
 			data['Data'] = datetime.date.today()
 			break
@@ -510,16 +510,16 @@ def issue_invoice():
 				data['Data'] = datetime.datetime.strptime(datetmp,"%d-%m-%Y")
 				break
 			except:	pass
-	answ = input("Indicare il numero d'Ordine facoltativo del cessionario/committente, ovvero premere [Invio]:  ")
+	answ = XML_input("Indicare il numero d'Ordine facoltativo del cessionario/committente, ovvero premere [Invio]:  ")
 	if answ:	data['ref'] = { 'Id':answ	}
-	#answer = input("Il vettore della fattura è il cliente [S]ì/[N]o ")
+	#answer = XML_input("Il vettore della fattura è il cliente [S]ì/[N]o ")
 	#if answer and answer.lower()[0]=='n':
 	#	print("Inserire informazioni fiscali sul Vettore")
 	#	vector = enter_org_data()
 	#else:	vector = client
 	data['EsigibilitaIVA'] = _enum_selection(EsigibilitaIVA_t, "esigibilità dell'IVA", 'I')
 	while True:
-		aliquotaIVA = input("Aliquota IVA (default: %d%%; indicare \"0\" se non applcabile):  "%user['cassa']['IVA'])
+		aliquotaIVA = XML_input("Aliquota IVA (default: %d%%; indicare \"0\" se non applcabile):  "%user['cassa']['IVA'])
 		if not aliquotaIVA:	aliquotaIVA = VAT_DEFAULT;	break
 		elif aliquotaIVA.isnumeric():	aliquotaIVA = eval(aliquotaIVA);	break
 	data['total'] = {
@@ -535,12 +535,12 @@ def issue_invoice():
 	if data['pagamento']['condizioni'] in ['TP01']:
 		exp = None
 		while not exp.isinstance(datetime.date):
-			try:	exp = datetime.strptime(input("Indicare la scadenza della rata (formato GG-MM-AAA):  "),"%d-%m-%Y")
+			try:	exp = datetime.strptime(XML_input("Indicare la scadenza della rata (formato GG-MM-AAA):  "),"%d-%m-%Y")
 			except:	continue
 			data['pagamento']['exp'] = datetime.datetime.strptime(exp,"%d-%m-%Y")
 	elif data['pagamento']['condizioni'] in ['TP02']:
 		while True:
-			delaydays = input("Giorni ammessi per il pagamento dall'emissione (premere [Invio] per nessuno):  ")
+			delaydays = XML_input("Giorni ammessi per il pagamento dall'emissione (premere [Invio] per nessuno):  ")
 			if not delaydays:	break
 			elif delaydays.isdigit() and eval(delaydays)>0:
 				data['pagamento']['exp'] = eval(delaydays)
@@ -550,7 +550,7 @@ def issue_invoice():
 			print("Premere [Invio] per inserire automaticamente l'IBAN trovato nelle informazioni")
 			print("del cedente/prestatore, inserire un IBAN alternativo, ovvero digitare \"No\".")
 			while True:
-				iban = input("[Invio] / cod.IBAN / [N]o: ")
+				iban = XML_input("[Invio] / cod.IBAN / [N]o: ")
 				if not iban:
 					data['pagamento']['IBAN'] = user['IBAN']
 					break
@@ -560,12 +560,12 @@ def issue_invoice():
 				elif iban.upper().startswith('N'):	break
 		else:
 			while True:
-				iban = input("Inserire codice IBAN ove effettuare il pagamento (oppure [Invio] per saltare): ").strip()
+				iban = XML_input("Inserire codice IBAN ove effettuare il pagamento (oppure [Invio] per saltare): ").strip()
 				if not iban:	break
 				if IBANre.match(iban.strip()):
 					data['pagamento']['IBAN'] = iban.upper().replace(' ','').replace('-','')
 					break
-	data['causale'] = input("Causale dell'intera fattura (max. 400 caratteri):  ")[:400]
+	data['causale'] = XML_input("Causale dell'intera fattura (max. 400 caratteri):  ")[:400]
 	if not data['causale']:	del data['causale']
 	data['#'], l, = [], 1
 	while True:
@@ -574,14 +574,14 @@ def issue_invoice():
 			vocestr = "Prezzo unitario della voce #%d"%l
 			if l > 1:	vocestr += " ([Invio] se le voci fattura sono terminate)"
 			vocestr += ":  "
-			pricetmp = input(vocestr)
+			pricetmp = XML_input(vocestr)
 			if pricetmp and pricetmp.isnumeric():
 				price = eval(pricetmp);	break
 			elif not pricetmp and l>1:	break
 		if not pricetmp:	l -= 1;	break
 		qty, vat = None, None
 		while True:
-			qtytmp = input("Quantità della voce #%d  [default: 1]:  "%l)
+			qtytmp = XML_input("Quantità della voce #%d  [default: 1]:  "%l)
 			if qtytmp and qtytmp.isnumeric():
 				qty = eval(qtytmp)
 				if qty <= 0:	qty = None
@@ -589,17 +589,17 @@ def issue_invoice():
 			elif not qtytmp:	break
 		if qty:
 			total = price * qty
-			unit = input("Unità di misura della voce #%d (premere [Invio] per nessuna):  "%l)
+			unit = XML_input("Unità di misura della voce #%d (premere [Invio] per nessuna):  "%l)
 		else:	total, unit = price, None
 		data['total']['subtotale'] += total
 		#	while not vat:
-		#		vat = input("Alitquota della voce #%d  [%%, default: %d]:  "%int(DEF_VAT))
+		#		vat = XML_input("Alitquota della voce #%d  [%%, default: %d]:  "%int(DEF_VAT))
 		#		if vat.isnumeric():
 		#			vat = eval(vat)
 		#			if vat <= 0:	vat = None
 		#		elif not vat:	vat = DEF_VAT
 		#		else:	vat = None
-		descr = input("Descrizione della voce #%d:  "%l)[:1000]
+		descr = XML_input("Descrizione della voce #%d:  "%l)[:1000]
 		line = {'linea':l,	'price':price, 'total':total, 'descr':descr	}
 		if qty:
 			line['Qty'] = qty
@@ -633,6 +633,10 @@ def issue_invoice():
 	if 'pagamento' in data.keys():
 		data['pagamento']['importo'] = data['total']['TOTALE']
 	return FatturaPA_assemble(user, client, data)
+
+def XML_input(input_text):
+	from xml.sax.saxutils import escape
+	return escape(input(input_text))
 
 CFre, EORIre = re.compile(r"[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]"), re.compile(r"[a-zA-Z0-9]{13,17}")
 emailre = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9-._]+@[a-zA-Z0-9][a-zA-Z0-9-._]+")
