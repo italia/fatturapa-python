@@ -1,6 +1,6 @@
 # coding=utf-8
 ##########################################################
-#  fatturapa-python 0.8                                  #
+#  fatturapa-python 0.9                                  #
 #--------------------------------------------------------#
 #   Quick generation of FatturaPA eInvoice XML files !   #
 #--------------------------------------------------------#
@@ -16,7 +16,7 @@ import json
 import sys
 import re
 
-__VERSION = "0.8"
+__VERSION = "0.9"
 CONF_FILE = "pyFatturaPA.conf.json"
 VAT_DEFAULT = 22.0
 
@@ -40,11 +40,11 @@ def enter_org_data():
 		while not addr['prov']:
 			prov = str(XML_input("Provincia (sigla a 2 cifre):  ")).upper()
 			if prov in PROVINCES:	addr['prov'] = prov
-	while not addr['muni']:
-		comune = str(XML_input("Comune (nome completo):  "))
-		if comune:	addr['muni'] = comune
+		while not addr['muni']:
+			comune = str(XML_input("Comune (nome completo):  "))
+			if comune:	addr['muni'] = comune
 	else:
-		while not (len(addr['zip'])==5 and addr['zip'].isnumeric()):
+		while not addr['zip']:
 			addr['zip'] = XML_input("Zip code:  ").upper()
 		print("ATTENZIONE!: Questa fattura andrà dichiarata nell'\"Esterometro\".\n")
 	while not addr['addr']:
@@ -170,6 +170,14 @@ def create_config():
 			del user['cassa']
 			answ = None;	break
 		else: answ = None;	continue
+	iban = None
+	while True:
+		iban = XML_input("Inserire codice IBAN ove effettuare prioritariamente i pagamenti ([Invio] per saltare): ").strip()
+		if not iban:	break
+		if IBANre.match(iban.strip()):
+			iban = iban.upper().replace(' ','').replace('-','')
+			break
+	if iban:	user['IBAN'] = iban
 	write_config(user, {}, append=False)
 
 
