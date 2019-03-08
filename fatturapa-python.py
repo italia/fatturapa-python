@@ -1,13 +1,13 @@
 # coding=utf-8
 ##########################################################
-#  fatturapa-python 0.9                                  #
+#  pyFatturaPA 1.0                                       #
 #--------------------------------------------------------#
 #   Quick generation of FatturaPA eInvoice XML files !   #
 #--------------------------------------------------------#
 #    GNU (GPL) 2019 Walter Arrighetti, PhD, CISSP        #
 #    coding by: Walter Arrighetti                        #
 #               <walter.arrighetti@agid.gov.it>          #
-#  < https://github.com/italia/fatturapa-python >        #
+#  < https://github.com/walter-arrighetti/pyFatturaPA >  #
 #                                                        #
 ##########################################################
 import datetime
@@ -16,7 +16,7 @@ import json
 import sys
 import re
 
-__VERSION = "0.9"
+__VERSION = "1.0"
 CONF_FILE = "pyFatturaPA.conf.json"
 VAT_DEFAULT = 22.0
 
@@ -153,7 +153,6 @@ def create_config():
 			while not user['ritenuta']['causale'] or user['ritenuta']['causale'] not in CausalePagamento_t:
 				user['ritenuta']['causale'] = XML_input("Inserire sigla della causale di pagamento ('A...Z' ovvero 'L|M|O|V1':  ").upper()
 		elif answ and answ[0].lower()=="n":
-			del user['ritenuta']
 			answ = None;	break
 		else: answ = None;	continue
 	answ = None
@@ -171,13 +170,6 @@ def create_config():
 			answ = None;	break
 		else: answ = None;	continue
 	iban = None
-	while True:
-		iban = XML_input("Inserire codice IBAN ove effettuare prioritariamente i pagamenti ([Invio] per saltare): ").strip()
-		if not iban:	break
-		if IBANre.match(iban.strip()):
-			iban = iban.upper().replace(' ','').replace('-','')
-			break
-	if iban:	user['IBAN'] = iban
 	write_config(user, {}, append=False)
 
 
@@ -185,7 +177,7 @@ def FatturaPA_write(filename, lines, debug_len=False):
 	payload_len, file_len = 0, 0
 	with open(filename,'w') as f:
 		import os
-		print("Generating FatturaPA e-invoice XML file \"%s\"....."%filename)
+		print("Creazione del file FatturaPA \"%s\"....."%filename)
 		for line in lines:
 			payload_len += len(line) + len(os.linesep)
 			file_len += f.write(line+'\n')
@@ -269,7 +261,7 @@ def FatturaPA_assemble(user, client, data):
 		'\t\t\t\t<TipoDocumento>%s</TipoDocumento>'%data['TipoDocumento'],
 		'\t\t\t\t<Divisa>%s</Divisa>'%data['Divisa'],
 		'\t\t\t\t<Data>%s</Data>'%data['Data'].strftime("%Y-%m-%d"),
-		'\t\t\t\t<Numero>%s</Numero>'%data['ProgressivoInvio']])
+		'\t\t\t\t<Numero>%s</Numero>'%data['num']])
 	if 'ritenuta' in user.keys() and 'ritenuta' in user.keys():
 		F.extend([
 			'\t\t\t\t<DatiRitenuta>',
@@ -356,7 +348,10 @@ def FatturaPA_assemble(user, client, data):
 		'\t</FatturaElettronicaBody>',
 		'</p:FatturaElettronica>'])
 	for n in range(len(F)):	F[n] = str(F[n])
-	eInvoice_name = "%s%s_%s.xml"%(user["VAT#"][0],user["VAT#"][1],data['ProgressivoInvio'])
+	if data['num'].isdigit() and int(data['num'])>0 and data['num'][0]!='0':
+		FatturaPAid = '%04d'%int(data['num'])
+	else:	FatturaPAid = data['num']
+	eInvoice_name = "%s%s_%s.xml"%(user["VAT#"][0],user["VAT#"][1],FatturaPAid)
 	return FatturaPA_write(eInvoice_name, F)
 
 
@@ -396,13 +391,13 @@ def issue_consultancy():
 		print(" * ERRORE!: Cliente '%s' non trovato nel database."%org)
 		sys.exit(-5)
 	client = clients[org];	del clients
-	data['FormatoTrasmissione'], data['TipoDocumento'], data['ProgressivoInvio'] = 'FPR12', 'TD01', None
+	data['FormatoTrasmissione'], data['TipoDocumento'], data['num'] = 'FPR12', 'TD01', ""
 	data['Divisa'], data['EsigibilitaIVA'], data['pagamento'] = "EUR", 'I', {	'condizioni':'TP02', 'mod':'MP05'	}
 	data['Data'] = datetime.date.today()
 	aliquotaIVA = VAT_DEFAULT
-	while not data['ProgressivoInvio']:
-		data['ProgressivoInvio'] = XML_input("Inserire il numero identificativo (progressivo) della fattura:  ")
-	data['num'] = data['ProgressivoInvio']
+	while (not data['num']) or not data['num'].strip()[0].isalnum():
+		data['num'] = XML_input("Inserire il numero identificativo (progressivo) della fattura:  ")
+	data['ProgressivoInvio'] = data['num']
 	answ = XML_input("Indicare il numero d'Ordine facoltativo del cessionario/committente, ovvero premere [Invio]:  ")
 	if answ:	data['ref'] = { 'Id':answ	}
 	data['total'] = {	'aliquota':aliquotaIVA, 'subtotale':0., 'imponibile':0.		}
@@ -498,12 +493,10 @@ def issue_invoice():
 	client = clients[org];	del clients
 	data['FormatoTrasmissione'] = _enum_selection(FormatoTrasmissione_t, "tipologia di fattura", 'FPR12')
 	data['TipoDocumento'] = _enum_selection(Documento_t, "tipologia di documento", 'TD01')
-	data['ProgressivoInvio'] = None
-	while not data['ProgressivoInvio']:
-		data['ProgressivoInvio'] = XML_input("Inserire il numero identificativo (progressivo) della fattura:  ")
-	#####################
-	data['num'] = data['ProgressivoInvio']
-	data['Divisa'] = ""
+	data['num'] = ""
+	while (not data['num']) or not data['num'].strip()[0].isalnum():
+		data['num'] = XML_input("Inserire il numero identificativo (progressivo) della fattura:  ")
+	data['ProgressivoInvio'], data['Divisa'] = data['num'], ""
 	while not (data['Divisa'] and len(data['Divisa'])==3):
 		data['Divisa'] = XML_input("Inserire la divisa (3 caratteri, default: EUR):  ")
 		if not data['Divisa']:	data['Divisa'] = "EUR"
@@ -776,7 +769,7 @@ def main():
 		print('\n')
 		sys.exit(9)
 	print("pyFatturaPA %s - Genera rapidamente fatture elettroniche semplici in XML nel formato FatturaPA."%__VERSION)
-	print("GNU (GPL) Maintainer[2019]: Walter Arrighetti  <walter.arrighetti@agid.gov.it>\n")
+	print("GNU (GPL) 2019 by Walter Arrighetti  <walter.arrighetti@agid.gov.it>\n")
 	[PROVINCES.extend(list(prov.keys())) for prov in REGIONS.values()]
 	if len(sys.argv) != 2:	print_args()
 	elif sys.argv[1].lower()=="consulenza":	issue_consultancy()
@@ -787,4 +780,4 @@ def main():
 	sys.exit(0)
 
 
-if __name__ == "__main__":	main()
+if __name__ == "__main__": main()
