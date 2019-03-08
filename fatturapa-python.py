@@ -1,8 +1,8 @@
 # coding=utf-8
 ##########################################################
-#  pyFatturaPA 1.0                                       #
+#  fatturapa-python 1.0                                  #
 #--------------------------------------------------------#
-#   Quick generation of FatturaPA eInvoice XML files !   #
+#   Rapida generazione di fatture elettroniche in XML    #
 #--------------------------------------------------------#
 #    GNU (GPL) 2019 Walter Arrighetti, PhD, CISSP        #
 #    coding by: Walter Arrighetti                        #
@@ -768,7 +768,7 @@ def main():
 		print("\t\tinizializza  Inizializza un nuovo database con i tuoi dati")
 		print('\n')
 		sys.exit(9)
-	print("pyFatturaPA %s - Genera rapidamente fatture elettroniche semplici in XML nel formato FatturaPA."%__VERSION)
+	print("FatturaPA-python %s - Genera rapidamente fatture elettroniche semplici in XML nel formato FatturaPA."%__VERSION)
 	print("GNU (GPL) 2019 by Walter Arrighetti  <walter.arrighetti@agid.gov.it>\n")
 	[PROVINCES.extend(list(prov.keys())) for prov in REGIONS.values()]
 	if len(sys.argv) != 2:	print_args()
