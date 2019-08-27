@@ -1,4 +1,5 @@
-# coding=utf-8
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 ##########################################################
 #  pyFatturaPA 1.2                                       #
 #--------------------------------------------------------#
@@ -103,7 +104,7 @@ def parse_config():
 	USER = clients["USER"]
 	del clients["USER"]
 	for org in clients.keys():
-		if type(org)!=type("") or len(org)!=3 or not org.isalnum():	return False, False
+		if type(org)!=type(u'') or len(org)!=3 or not org.isalnum():	return False, False
 	return (USER, clients)
 
 
@@ -384,7 +385,7 @@ def _enum_selection(enumtype, enumname=None, default=None):
 		if default and keys[n-1]==default:	question += " (default: %s)"%n
 	question += ":  "
 	answ = None
-	if default and default in keys:
+	if (default or default=='') and default in keys:
 		while True:
 			answ = XML_input(question)
 			if not answ:	return default
@@ -420,7 +421,7 @@ def issue_consultancy():
 	data['ProgressivoInvio'] = data['num']
 	answ = XML_input("Indicare il numero d'Ordine facoltativo del cessionario/committente, ovvero premere [Invio]:  ")
 	if answ:	data['ref'] = { 'Id':answ	}
-	data['natura'] = [_enum_selection(Natura_t, "condizioni di pagamento", ''), None]
+	data['natura'] = [_enum_selection(Natura_t, "le condizioni di pagamento (premere [Invio] per confermare standard)", ''), None]
 	if not data['natura'][0]:	del data['natura']
 	else:
 		data['natura'][1] = _enum_selection(RefNormativo_t, "riferimento normativo", '7-7.1c')
@@ -559,11 +560,11 @@ def issue_invoice():
 		'condizioni':_enum_selection(CondizioniPagamento_t, "condizioni di pagamento", 'TP02'),
 		'mod':_enum_selection(ModalitaPagamento_t, "modalità di pagamento", 'MP05')	
 		}
+	data['natura'] = [_enum_selection(Natura_t, "le condizioni di pagamento (premere [Invio] per confermare standard)", ''), None]
 	if not data['natura'][0]:	del data['natura']
 	else:
 		data['natura'][1] = _enum_selection(RefNormativo_t, "riferimento normativo", '7-7.1c')
 		if data['natura'][0] in _nature_esenti_IVA_ritenuta:	aliquotaIVA, ritenuta = 0, False
-		#elif data['natura'][0] in []:	
 	if data['pagamento']['condizioni'] in ['TP01']:
 		exp = None
 		while not exp.isinstance(datetime.date):
