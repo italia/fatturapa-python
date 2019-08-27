@@ -1,8 +1,8 @@
 # coding=utf-8
 ##########################################################
-#  FatturaPA-python 1.0                                  #
+#  pyFatturaPA 1.2                                       #
 #--------------------------------------------------------#
-#   Rapida generazione di fatture elettroniche in XML    #
+#   Quick generation of FatturaPA eInvoice XML files !   #
 #--------------------------------------------------------#
 #    GNU (GPL) 2019 Walter Arrighetti, PhD, CISSP        #
 #    coding by: Walter Arrighetti                        #
@@ -16,7 +16,7 @@ import json
 import sys
 import re
 
-__VERSION = "1.0"
+__VERSION = "1.2"
 CONF_FILE = "pyFatturaPA.conf.json"
 VAT_DEFAULT = 22.0
 
@@ -28,47 +28,51 @@ def check_config():
 
 def enter_org_data():
 	answer = XML_input("P.IVA individuale? Sì/[N]o ")
-	if answer and answer.lower()[0]=='s':	orgname = tuple([str(XML_input("Nome:  ")), XML_input(str("Cognome:  "))])
-	else:	orgname = str(XML_input("Ragione sociale:  "))
+	if answer and answer.lower()[0]=='s':	orgname = tuple([XML_input("Nome:  "), XML_input(str("Cognome:  "))])
+	else:	orgname = XML_input("Ragione sociale:  ")
 	addr = {	'country':"", 'zip':"", 'addr':None, 'prov':None, 'muni':None	}
 	while len(addr['country'])!=2:
-		addr['country'] = str(XML_input("Sigla a 2 caratteri della nazione (premi [Invio] per Italia):  ")).upper()
+		addr['country'] = XML_input("Sigla a 2 caratteri della nazione (premi [Invio] per Italia):  ").upper()
 		if not addr['country']:	addr['country'] = "IT"
 	if addr['country']=="IT":
 		while not (len(addr['zip'])==5 and addr['zip'].isnumeric()):
 			addr['zip'] = XML_input("CAP (5 cifre):  ").upper()
 		while not addr['prov']:
-			prov = str(XML_input("Provincia (sigla a 2 cifre):  ")).upper()
+			prov = XML_input("Provincia (sigla a 2 cifre):  ").upper()
 			if prov in PROVINCES:	addr['prov'] = prov
 		while not addr['muni']:
-			comune = str(XML_input("Comune (nome completo):  "))
+			comune = XML_input("Comune (nome completo):  ")
 			if comune:	addr['muni'] = comune
 	else:
 		while not addr['zip']:
 			addr['zip'] = XML_input("Zip code:  ").upper()
 		print("ATTENZIONE!: Questa fattura andrà dichiarata nell'\"Esterometro\".\n")
 	while not addr['addr']:
-		addr['addr'] = str(XML_input("Indirizzo (via/piazza/..., *senza* numero civico):  "))
-	addr['#'] = str(XML_input("Numero civico (se applicabile):  "))
+		addr['addr'] = XML_input("Indirizzo (via/piazza/..., *senza* numero civico):  ")
+	addr['#'] = XML_input("Numero civico (se applicabile):  ")
 	for key in ['prov','#']:
 		if not addr[key]:	del addr[key]
 	VATnum = None
 	if addr['country']=="IT":
 		while not VATnum:
-			VATc, VATnum = "IT", str(XML_input("Numero di Partita IVA:  "))
+			VATc, VATnum = "IT", XML_input("Numero di Partita IVA:  ")
 	elif addr['country'].lower() in EU_MemberStates.keys():
+		VATc = addr['country']
 		while not VATnum:
-			VATc, VATnum = addr['country'], str(XML_input("VAT Number:  "))
-	else:	VATc, VATnum = "OO", "99999999999"
+			VATnum = XML_input("Numero VAT o TIN (obbligatorio in Comunità Europea):  ")
+	else:
+		VATc, VATnum = addr['country'], XML_input("Numero VAT o TIN (facoltativo al di fuori della CE):  ")
+		if not VATnum:
+			VATc, VATnum = "OO", "99999999999"
 	CF = None
 	while VATc=="IT" and CF==None:
-		CF = str(XML_input("Codice Fiscale (se applicabile):  "))
+		CF = XML_input("Codice Fiscale (se applicabile):  ")
 		if CF=="":	break
 		elif CF and CFre.match(CF) or (10<len(CF)<17 and CF.isalnum()):	break
 		CF = None
 	email = None
 	while email==None:
-		email = str(XML_input("Indirizzo email (obbligatoriamente PEC se in Italia):  "))
+		email = XML_input("Indirizzo email (obbligatoriamente PEC se in Italia):  ")
 		if email=="" or emailre.match(email):	break
 		else:	email = None
 	if addr['country']=="IT":
@@ -77,7 +81,7 @@ def enter_org_data():
 			print("Indirizzo PEC specificato: identificativo unico impostato a '0000000'.")
 		else:
 			if addr['country']=="IT":	Id = None
-			while not Id:	Id = str(XML_input("Identificativo Unico (se applicabile):  "))
+			while not Id:	Id = XML_input("Identificativo Unico (se applicabile):  ").upper()
 	else:	Id = "XXXXXXX"
 	if not Id:	Id = None
 	while True:
@@ -120,7 +124,7 @@ def write_config(user, clients, append):
 
 
 
-def	add_company():
+def add_company():
 	if not os.path.exists(CONF_FILE):
 		print("ERROR!: Il file di configurazione di pyFatturaPA (%s) non è stato trovato. L'utente va prima inizializzato."%CONF_FILE)
 		sys.exit(-2)
@@ -128,7 +132,7 @@ def	add_company():
 	if not user:	return False
 	orgname = ""
 	while len(orgname)!=3 or not orgname.isalnum() or orgname in clients.keys():
-		orgname = str(XML_input("Sigla di 3 caratteri alfanumerici per la nuova organizzazione:  ")).upper()
+		orgname = XML_input("Sigla di 3 caratteri alfanumerici per la nuova organizzazione:  ").upper()
 	new_client = enter_org_data()
 	clients[orgname] = new_client
 	write_config(user, clients, append=False)
@@ -187,10 +191,15 @@ def FatturaPA_write(filename, lines, debug_len=False):
 
 
 def FatturaPA_assemble(user, client, data):
+	global FatturaPA_XMLns
+	_FatturaElettronica_XMLroot = '<p:FatturaElettronica versione="%s"'%data['FormatoTrasmissione']
+	for key in sorted(FatturaPA_XMLns.keys()):
+		_FatturaElettronica_XMLroot += ' %s="%s"'%(key,FatturaPA_XMLns[key])
+	_FatturaElettronica_XMLroot += '>'
 	#####	FATTURA ELETTRONICA HEADER
 	F = [
 		'<?xml version="1.0" encoding="UTF-8" ?>',
-		'<p:FatturaElettronica versione="%s" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns:p="http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2 http://www.fatturapa.gov.it/export/fatturazione/sdi/fatturapa/v1.2/Schema_del_file_xml_FatturaPA_versione_1.2.xsd">'%data['FormatoTrasmissione'],
+		_FatturaElettronica_XMLroot,
 		'\t<FatturaElettronicaHeader>',
 		'\t\t<DatiTrasmissione>',
 		'\t\t\t<IdTrasmittente>',
@@ -277,8 +286,9 @@ def FatturaPA_assemble(user, client, data):
 			'\t\t\t\t\t<AlCassa>%.02f</AlCassa>'%user['cassa']['aliquota'],
 			'\t\t\t\t\t<ImportoContributoCassa>%.02f</ImportoContributoCassa>'%data['cassa']['importo'],
 			'\t\t\t\t\t<ImponibileCassa>%.02f</ImponibileCassa>'%data['cassa']['imponibile'],
-			'\t\t\t\t\t<AliquotaIVA>%.02f</AliquotaIVA>'%user['cassa']['IVA'],
-			'\t\t\t\t</DatiCassaPrevidenziale>'])
+			'\t\t\t\t\t<AliquotaIVA>%.02f</AliquotaIVA>'%user['cassa']['IVA']])
+		if 'natura' in data.keys():	F.append('\t\t\t\t\t<Natura>%s</Natura>'%data['natura'][0])
+		F.append('\t\t\t\t</DatiCassaPrevidenziale>')
 	if 'causale' in data.keys():
 		for k in range(0,len(data['causale']),200):
 			F.append('\t\t\t\t<Causale>%s</Causale>'%data['causale'][200*k:200*(k+1)])
@@ -315,14 +325,23 @@ def FatturaPA_assemble(user, client, data):
 			'\t\t\t\t<AliquotaIVA>%.02f</AliquotaIVA>'%data['total']['aliquota']
 			])
 		if 'ritenuta' in user.keys():
-			F.append('\t\t\t\t<Ritenuta>%s</Ritenuta>'%'SI')
+			if 'natura' in data.keys() and data['natura'][0] in _nature_esenti_IVA_ritenuta:	pass
+			else:	F.append('\t\t\t\t<Ritenuta>%s</Ritenuta>'%'SI')
+		if 'natura' in data.keys():	F.append('\t\t\t\t<Natura>%s</Natura>'%data['natura'][0])
 		F.append('\t\t\t</DettaglioLinee>')
 	F.extend([
 		'\t\t\t<DatiRiepilogo>',
-		'\t\t\t\t<AliquotaIVA>%.02f</AliquotaIVA>'%data['total']['aliquota'],
+		'\t\t\t\t<AliquotaIVA>%.02f</AliquotaIVA>'%data['total']['aliquota']])
+	if 'natura' in data.keys():
+		F.append('\t\t\t\t<Natura>%s</Natura>'%data['natura'][0])
+	F.extend([
 		'\t\t\t\t<ImponibileImporto>%.02f</ImponibileImporto>'%data['total']['imponibile'],
-		'\t\t\t\t<Imposta>%.02f</Imposta>'%data['total']['imposta'],
-		'\t\t\t\t<EsigibilitaIVA>%s</EsigibilitaIVA>'%data['EsigibilitaIVA'],
+		'\t\t\t\t<Imposta>%.02f</Imposta>'%data['total']['imposta']])
+	if 'natura' in data.keys():
+		F.append('\t\t\t\t<RiferimentoNormativo>%s</RiferimentoNormativo>'%data['natura'][1]),
+	if data['total']['aliquota'] != 0.:
+		F.append('\t\t\t\t<EsigibilitaIVA>%s</EsigibilitaIVA>'%data['EsigibilitaIVA']),
+	F.extend([
 		'\t\t\t</DatiRiepilogo>',
 		'\t\t</DatiBeniServizi>'])
 	if 'pagamento' in data.keys():
@@ -379,6 +398,7 @@ def _enum_selection(enumtype, enumname=None, default=None):
 
 def issue_consultancy():
 	user, clients = parse_config()
+	ritenuta = 'ritenuta' in user.keys()
 	data = {}
 	if not user:
 		print(" * ERRORE!: Database senza dati personali, ovvero il file \"%s\" deve trovarsi nella stessa cartella di \"%s\"."%(CONF_FILE,sys.argv[0]))
@@ -400,6 +420,11 @@ def issue_consultancy():
 	data['ProgressivoInvio'] = data['num']
 	answ = XML_input("Indicare il numero d'Ordine facoltativo del cessionario/committente, ovvero premere [Invio]:  ")
 	if answ:	data['ref'] = { 'Id':answ	}
+	data['natura'] = [_enum_selection(Natura_t, "condizioni di pagamento", ''), None]
+	if not data['natura'][0]:	del data['natura']
+	else:
+		data['natura'][1] = _enum_selection(RefNormativo_t, "riferimento normativo", '7-7.1c')
+		if data['natura'][0] in _nature_esenti_IVA_ritenuta:	aliquotaIVA, ritenuta = 0, False
 	data['total'] = {	'aliquota':aliquotaIVA, 'subtotale':0., 'imponibile':0.		}
 	while True:
 		delaydays = XML_input("Giorni ammessi per il pagamento dall'emissione (premere [Invio] per nessuno):  ")
@@ -442,12 +467,12 @@ def issue_consultancy():
 			unit = XML_input("Unità di misura della voce #%d (premere [Invio] per nessuna):  "%l)
 		else:	total, unit = price, None
 		data['total']['subtotale'] += total
-		descr = XML_input("Descrizione della voce #%d:  "%l)[:1000]
+		descr = None
+		while not descr:	descr = XML_input("Descrizione della voce #%d:  "%l)[:1000]
 		line = {'linea':l,	'price':price, 'total':total, 'descr':descr	}
 		if qty:
 			line['Qty'] = qty
 			if unit:	line['unit'] = unit
-		if not descr:	del line['descr']
 		data['#'].append( line )
 		del price, vat, qty, total, descr
 		l += 1
@@ -463,7 +488,7 @@ def issue_consultancy():
 	subtotale += data['cassa']['importo']
 	data['total']['imponibile'] = subtotale
 	####	Calcolo della Ritenuta d'Acconto
-	if 'ritenuta' in user.keys():
+	if ritenuta:
 		data['total']['ritenuta'] = -1 * subtotale * (user['ritenuta']['aliquota']/100)	# = user['ritenuta']['importo']
 	else:	data['total']['ritenuta'] = 0
 	data['ritenuta'] = {	'importo':data['total']['ritenuta'], 'imponibile':subtotale, 'aliquota':user['ritenuta']['aliquota']	}
@@ -479,6 +504,7 @@ def issue_consultancy():
 
 def issue_invoice():
 	user, clients = parse_config()
+	ritenuta = 'ritenuta' in user.keys()
 	data = {}
 	if not user:
 		print(" * ERRORE!: Database senza dati personali, ovvero il file \"%s\" deve trovarsi nella stessa cartella di \"%s\"."%(CONF_FILE,sys.argv[0]))
@@ -533,6 +559,11 @@ def issue_invoice():
 		'condizioni':_enum_selection(CondizioniPagamento_t, "condizioni di pagamento", 'TP02'),
 		'mod':_enum_selection(ModalitaPagamento_t, "modalità di pagamento", 'MP05')	
 		}
+	if not data['natura'][0]:	del data['natura']
+	else:
+		data['natura'][1] = _enum_selection(RefNormativo_t, "riferimento normativo", '7-7.1c')
+		if data['natura'][0] in _nature_esenti_IVA_ritenuta:	aliquotaIVA, ritenuta = 0, False
+		#elif data['natura'][0] in []:	
 	if data['pagamento']['condizioni'] in ['TP01']:
 		exp = None
 		while not exp.isinstance(datetime.date):
@@ -600,7 +631,8 @@ def issue_invoice():
 		#			if vat <= 0:	vat = None
 		#		elif not vat:	vat = DEF_VAT
 		#		else:	vat = None
-		descr = XML_input("Descrizione della voce #%d:  "%l)[:1000]
+		descr = None
+		while not descr:	descr = XML_input("Descrizione della voce #%d:  "%l)[:1000]
 		line = {'linea':l,	'price':price, 'total':total, 'descr':descr	}
 		if qty:
 			line['Qty'] = qty
@@ -621,7 +653,7 @@ def issue_invoice():
 	subtotale += data['cassa']['importo']
 	data['total']['imponibile'] = subtotale
 	####	CALCOLO DELLA RITENUTA D'ACCONTO
-	if 'ritenuta' in user.keys():
+	if ritenuta:
 		data['total']['ritenuta'] = -1 * subtotale * (user['ritenuta']['aliquota']/100)	# = user['ritenuta']['importo']
 	else:	data['total']['ritenuta'] = 0
 	data['ritenuta'] = {	'importo':data['total']['ritenuta'], 'imponibile':subtotale, 'aliquota':user['ritenuta']['aliquota']	}
@@ -637,7 +669,7 @@ def issue_invoice():
 
 def XML_input(input_text):
 	from xml.sax.saxutils import escape
-	return escape(input(input_text))
+	return str( escape(input(input_text)).strip() )
 
 CFre, EORIre = re.compile(r"[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]"), re.compile(r"[a-zA-Z0-9]{13,17}")
 emailre = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9-._]+@[a-zA-Z0-9][a-zA-Z0-9-._]+")
@@ -669,6 +701,12 @@ REGIONS, PROVINCES = {
 	'Valle d\'Aosta'       :{'AO':"Aosta"},
 	'Veneto'               :{'BL':"Belluno", 'PD':"Padova", 'RO':"Rovigo", 'TV':"Treviso", 'VE':"Venezia", 'VR':"Verona", 'VI':"Vicenza"}
 }, []
+FatturaPA_XMLns = {
+	'xmlns:ds'			:"http://www.w3.org/2000/09/xmldsig#",
+	'xmlns:p'			:"http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2",
+	'xmlns:xsi'			:"http://www.w3.org/2001/XMLSchema-instance",
+	'xsi:schemaLocation':"http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2 http://www.fatturapa.gov.it/export/fatturazione/sdi/fatturapa/v1.2/Schema_del_file_xml_FatturaPA_versione_1.2.xsd"
+}
 FormatoTrasmissione_t = { 'FPA12':"verso PA", 'FPR12':"verso privati"	}
 CausalePagamento_t = frozenset(['A','B','C','D','E','F','G','H','I','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','L1','M1','O1','V1'])
 TipoSconto_t = { 'sconto':"SC", 'maggiorazione':"MG"	}
@@ -752,8 +790,13 @@ ModalitaPagamento_t = {
 }
 EsigibilitaIVA_t = {	'D':"esibilità differita", 'I':"esigibilità immediata", 'S':"scissione dei pagamenti"	}
 Natura_t = {
-	'N1':"Escluse ex. art.15", 'N2':"Non soggette", 'N3':"Non Imponibili", 'N4':"Esenti", 'N5':"Regime del margine", 'N6':"Inversione contabile (reverse charge)",
+	'':"Standard (nessuna ulteriore natura)", 'N1':"Escluse ex. art.15", 'N2':"Non soggette", 'N3':"Non Imponibili", 'N4':"Esenti", 'N5':"Regime del margine", 'N6':"Inversione contabile (reverse charge)",
 	'N7':"IVA assolta in altro stato UE (vendite a distanza ex art.40 commi 3 e 4 e art.41 comma 1 lett.b, DL 331/93; prestazione di servizi di telecomunicazioni, teleradiodiffusione ed elettronici ex art.7-sexies lett. f,g, DPR 633/72 e art.74-sexies, DPR 633/72)"
+}
+_nature_esenti_IVA_ritenuta = frozenset([ 'N2','N3','N4' ])
+RefNormativo_t = {
+	'7-3.1'  :"(art.7-ter cm.1 DPR 633/1972)",
+	'7-7.1.c':"(art.7-septies cm.1(c) DPR 633/1972"
 }
 SocioUnico_t = {	'SU':"socio unico", 'SM':"più soci"	}
 StatoLiquidazione_t = {	'LS':"in liquidazione", 'LN':"non in liquidazione"	}
@@ -762,13 +805,13 @@ TipoCessionePrestazione_t = {	'SC':"Sconto", 'PR':"Premio", 'AB':"Abbuono", 'AC'
 def main():
 	def print_args():
 		print(" Utilizzo:  %s  emetti | fornitore | inizializza"%os.path.basename(sys.argv[0]))
-		print("\t\tconsulenza   Genera FatturaPA per consulenza verso fornitore esistente")
-		print("\t\temetti       Genera FatturaPA generica verso fornitore esistente")
-		print("\t\tcommittente  Aggiunge un fornitore (italiano) al database")
+		print("\t\temetti       Crea fattura generica verso fornitore esistente")
+		print("\t\tconsulenza       \"\"   di consulenza a fornitore (UE / extra-UE)")
+		print("\t\tcommittente  Aggiunge un fornitore (UE / extra-UE) al database")
 		print("\t\tinizializza  Inizializza un nuovo database con i tuoi dati")
 		print('\n')
 		sys.exit(9)
-	print("FatturaPA-python %s - Genera rapidamente fatture elettroniche semplici in XML nel formato FatturaPA."%__VERSION)
+	print("pyFatturaPA %s - Genera rapidamente fatture elettroniche semplici in XML nel formato FatturaPA."%__VERSION)
 	print("GNU (GPL) 2019 by Walter Arrighetti  <walter.arrighetti@agid.gov.it>\n")
 	[PROVINCES.extend(list(prov.keys())) for prov in REGIONS.values()]
 	if len(sys.argv) != 2:	print_args()
