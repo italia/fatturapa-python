@@ -98,7 +98,7 @@ def enter_org_data():
 
 
 def parse_config():
-	clients = json.load(open(CONF_FILE,"r"))
+	try:	clients = json.load(open(CONF_FILE,"r"))
 	except:	return False, False
 	if "USER" not in clients.keys():	return False, False
 	USER = clients["USER"]
