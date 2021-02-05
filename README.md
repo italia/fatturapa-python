@@ -11,7 +11,7 @@ Due to the validity of such e-invoicing standard being limited to Italian financ
 ### Descrizione
 Questo tool viene inizialmente impiegato per costituire un database contenente un elenco essenziale di committenti (ove sono registrate le loro informazioni fiscali quali P.IVA, indirizzo PEC, C.F., ecc.). Il database, chiamato `pyFatturaPA.conf.json`, deve trovarsi nella medesima cartella del tool, così come si consiglia di eseguirlo da tale cartella.
 
-Sempre mediante lo stesso (cfr. sezione **Sintassi**), si possono generare singole fatture elettroniche in formato XML che rispettano lo standard [*FatturaPA* 1.2.1](https://www.fatturapa.gov.it/export/fatturazione/it/normativa/f-2.htm). La sintassi del nome del file generato è `IT`*`numPartitaIVA`*`_`*`numFattura`*`.xml`, cioè combinando il numero di P.IVA emettente e l'identificativo univoco di quella fattura elettronica specifica.
+Sempre mediante lo stesso (cfr. sezione **Sintassi**), si possono generare singole fatture elettroniche in formato XML che rispettano lo standard [*FatturaPA* 1.3.1](https://www.fatturapa.gov.it/it/norme-e-regole/documentazione-fatturapa/). La sintassi del nome del file generato è `IT`*`numPartitaIVA`*`_`*`numFattura`*`.xml`, cioè combinando il numero di P.IVA emettente e l'identificativo univoco di quella fattura elettronica specifica.
 
 Tali fatture elettroniche sono pronte per essere *firmate* (da parte del cedente/prestatore) ovvero *sigillate elettronicamente* (da parte dell'[Agenzia delle Entrate](https://www.agenziaentrate.gov.it)), per poi essere inviate al [*Sistema di Interscambio* dell'Agenzia delle Entrate](https://ivaservizi.agenziaentrate.gov.it/portale/) stessa e, da li, in conservazione sostitutiva.
 
