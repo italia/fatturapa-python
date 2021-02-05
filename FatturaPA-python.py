@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 ##########################################################
-#  pyFatturaPA 1.21                                      #
+#  FatturaPA-python 1.3.1                                #
 #--------------------------------------------------------#
 #   Quick generation of FatturaPA eInvoice XML files !   #
 #--------------------------------------------------------#
-#    GNU (GPL) 2019 Walter Arrighetti, PhD, CISSP        #
-#    coding by: Walter Arrighetti                        #
-#               <walter.arrighetti@agid.gov.it>          #
+#    GNU (GPL) 2019-2021 Walter Arrighetti               #
+#    coding by: Ing. Walter Arrighetti, PhC, CISSP CCSP  #
 #  < https://github.com/walter-arrighetti/pyFatturaPA >  #
 #                                                        #
 ##########################################################
@@ -17,7 +16,7 @@ import json
 import sys
 import re
 
-__VERSION = "1.21"
+__VERSION = "1.3.1"
 CONF_FILE = "pyFatturaPA.conf.json"
 VAT_DEFAULT = 22.0
 
@@ -326,7 +325,9 @@ def FatturaPA_assemble(user, client, data):
 			'\t\t\t\t<AliquotaIVA>%.02f</AliquotaIVA>'%data['total']['aliquota']
 			])
 		if 'ritenuta' in user.keys():
-			if 'natura' in data.keys() and data['natura'][0] in _nature_esenti_IVA_ritenuta:	pass
+			if 'natura' in data.keys():
+				for exent in _nature_esenti_IVA_ritenuta:
+					if data['natura'][0].startswith(exent):	pass
 			else:	F.append('\t\t\t\t<Ritenuta>%s</Ritenuta>'%'SI')
 		if 'natura' in data.keys():	F.append('\t\t\t\t<Natura>%s</Natura>'%data['natura'][0])
 		F.append('\t\t\t</DettaglioLinee>')
@@ -421,11 +422,13 @@ def issue_consultancy():
 	data['ProgressivoInvio'] = data['num']
 	answ = XML_input("Indicare il numero d'Ordine facoltativo del cessionario/committente, ovvero premere [Invio]:  ")
 	if answ:	data['ref'] = { 'Id':answ	}
-	data['natura'] = [_enum_selection(Natura_t, "le condizioni di pagamento (premere [Invio] per confermare standard)", ''), None]
-	if not data['natura'][0]:	del data['natura']
+	data['natura'] = _enum_selection(Natura_t, "le condizioni di pagamento (premere [Invio] per confermare standard)", '')
+	if not data['natura']:	del data['natura']
 	else:
-		data['natura'][1] = _enum_selection(RefNormativo_t, "riferimento normativo", '7-7.1c')
-		if data['natura'][0] in _nature_esenti_IVA_ritenuta:	aliquotaIVA, ritenuta = 0, False
+		if data['natura'] in _nature_esenti_IVA_ritenuta:
+			aliquotaIVA, ritenuta = 0, False
+		if data['natura'] in RefNormativo_t.keys():
+			data['natura'] = _enum_selection(RefNormativo_t[data['natura']],"riferimento normativo")
 	data['total'] = {	'aliquota':aliquotaIVA, 'subtotale':0., 'imponibile':0.		}
 	while True:
 		delaydays = XML_input("Giorni ammessi per il pagamento dall'emissione (premere [Invio] per nessuno):  ")
@@ -560,11 +563,13 @@ def issue_invoice():
 		'condizioni':_enum_selection(CondizioniPagamento_t, "condizioni di pagamento", 'TP02'),
 		'mod':_enum_selection(ModalitaPagamento_t, "modalità di pagamento", 'MP05')	
 		}
-	data['natura'] = [_enum_selection(Natura_t, "le condizioni di pagamento (premere [Invio] per confermare standard)", ''), None]
-	if not data['natura'][0]:	del data['natura']
+	data['natura'] = _enum_selection(Natura_t, "le condizioni di pagamento (premere [Invio] per confermare standard)", '')
+	if not data['natura']:	del data['natura']
 	else:
-		data['natura'][1] = _enum_selection(RefNormativo_t, "riferimento normativo", '7-7.1c')
-		if data['natura'][0] in _nature_esenti_IVA_ritenuta:	aliquotaIVA, ritenuta = 0, False
+		if data['natura'] in _nature_esenti_IVA_ritenuta:
+			aliquotaIVA, ritenuta = 0, False
+		if data['natura'] in RefNormativo_t.keys():
+			data['natura'] = _enum_selection(RefNormativo_t[data['natura']],"riferimento normativo")
 	if data['pagamento']['condizioni'] in ['TP01']:
 		exp = None
 		while not exp.isinstance(datetime.date):
@@ -736,30 +741,56 @@ TipoCassa_t = {
 	'TC21':"Ente nazionale previdenza e assistenza psicologi (ENPAP)",
 	'TC22':"INPS"
 }
-Documento_t = {	'TD01':"Fattura", 'TD02':"Acconto/anticipo su fattura", 'TD03':"Acconto/anticipo su parcella", 'TD04':"Nota di credito", 'TD05':"Nota di debito", 'TD06':"Parcella"	}
-Ritenuta_t1 = {	'RT01':"Ritenuta di acconto persone fisiche", 'RT02':"Ritenuta di acconto persone giuridiche"	}
+Documento_t = {
+	'TD01':"Fattura",
+	'TD02':"Acconto/anticipo su fattura",
+	'TD03':"Acconto/anticipo su parcella",
+	'TD04':"Nota di credito",
+	'TD05':"Nota di debito",
+	'TD06':"Parcella",
+	'TD16':"Integrazione fattura reverse charge interno",
+	'TD17':"Integrazione/autofattura per acquisto servizi da estero (ex art.17 comma 2 DPR 633/1978",
+	'TD18':"Integrazione per acquisto beni intracomunitari (ex art.46 DL 331/1993)",
+	'TD19':"Integrazione/autofattura per acquisto beni (ex art.17 comma 2 DPR 633/1972)",
+	'TD20':"Autofattura denuncia",	#per regolarizzazione e integrazione delle fatture (art.6 comma 7 DLgs 471/1997 o art.46 comma 5 DL 331/1993)",
+	'TD21':"Autofattura per splafonamento",
+	'TD22':"Estrazione beni da Deposito IVA",
+	'TD23':"Estrazione beni da Deposito IVA con versamento IVA",
+	'TD24':"Fattura differita (art.21 comma 4 lett.a)",	#ovvero fattura differita di beni collegati a DDT o di servizi collegati a ideona documentazione di prova dell'effettuazione per le prestazioni di servizio)",
+	'TD25':"Fattura differita (art.21 comma 4 terzo § lett.b)",	#triangolari interne, ossia cessione di beni effettuata dal cessionario verso un terzo per il tramite del cedente)",
+	'TD26':"Cessione di beni ammortizzabili e per passaggi interni (art.36 DPR 633/1972)",
+	'TD27':"Fattura per autoconsumo o per cessioni gratuite senza rivalsa",
+}
+Ritenuta_t1 = {
+	'RT01':"Ritenuta persone fisiche",
+	'RT02':"Ritenuta persone giuridiche",
+	'RT03':"Contributo INPS",
+	'RT04':"Contributo ENASARCO",
+	'RT05':"Contributo ENPAM",
+	'RT06':"altro contributo previdenziale"
+}
 Ritenuta_t2 = {	'SI':"Cessione/prestazione soggetta a ritenuta"	}
 SoggettoEmittente_t = {	'CC':"Cessionario / committente", 'TZ':"Terzo"	}
 RegimeFiscale_t = {
 	'RF01':"Regime ordinario",
 	'RF02':"Regime dei contribuenti minimi (art.1 c.96-117, L.244/2007)",
 	#'RF03':"Nuove iniziative produttive (art.13 L.388/0)",
-	'RF04':"Agricoltura e attività connesse e pesca (artt.34 e 34-bis)",
+	'RF04':"Agricoltura e attività connesse e pesca (artt.34 e 34bis)",
 	'RF05':"Vendita sali e tabacchi (art.74 c.1)",
 	'RF06':"Commercio dei fiammiferi (art.74 c.1)",
 	'RF07':"Editoria (art.74 c.1)",
 	'RF08':"Gestione di servizi di telefonia pubblica (art.74 c.1)",
 	'RF09':"Rivendita di documenti di trasporto pubblico e di sosta (art.74 c.1)",
 	'RF10':"Intrattenimenti, giochi e altre attività di cui alla tariffa allegata al DPR 640/72 (art.74 c.6)",
-	'RF11':"Agenzie di viaggi e turismo (art.74-ter)",
+	'RF11':"Agenzie di viaggi e turismo (art.74ter)",
 	'RF12':"Agriturismo (art.5 c.2, L.413/1991)",
-	'RF13':"Vendite a domicilio (art.25-bis c.6, DPR 600/1973)",
+	'RF13':"Vendite a domicilio (art.25bis c.6, DPR 600/1973)",
 	'RF14':"Rivendita di beni usati, di oggetti	d’arte, d’antiquariato o da collezione (art.36, DL 41/1995)",
-	'RF15':"Agenzie di vendite all’asta di oggetti d’arte, antiquariato o da collezione (art.40-bis, DL 41/1995)",
+	'RF15':"Agenzie di vendite all’asta di oggetti d’arte, antiquariato o da collezione (art.40bis, DL 41/1995)",
 	'RF16':"IVA per cassa P.A. (art.6 c.5)",
-	'RF17':"IVA per cassa (art.32-bis, DL 83/2012)",
-	'RF19':"Regime forfettario",
-	'RF18':"Altro"
+	'RF17':"IVA per cassa (art.32bis, DL 83/2012)",
+	'RF19':"Regime forfettario (art.1 comma 54-89 L.190/2014)",
+	'RF18':"altro"
 }
 #RegimeFiscaleIVA_t = {
 #	'RF01':22.0,
@@ -784,20 +815,58 @@ RegimeFiscale_t = {
 #}
 CondizioniPagamento_t = {	'TP01':"pagamento a rate", 'TP02':"pagamento completo", 'TP03':"anticipo"	}
 ModalitaPagamento_t = {
-	'MP01':"contanti", 'MP02':"assegno circolare", 'MP04':"contanti presso Tesoreria", 'MP05':"bonifico", 'MP06':"vaglia cambiario", 'MP07':"bollettino bancario",
-	'MP08':"carta di pagamento", 'MP09':"RID", 'MP10':"RID utenze", 'MP11':"RID veloce", 'MP12':"RIBA", 'MP13':"MAV", 'MP14':"quietanza erario",
-	'MP15':"giroconto su conti di contabilità speciale", 'MP16':"domiciliazione bancaria", 'MP17':"domiciliazione postale", 'MP18':"bollettino di c/c postale", 
-	'MP19':"SEPA Direct Debit", 'MP20':"SEPA Direct Debit CORE", 'MP21':"SEPA Direct Debit B2B", 'MP22':"Trattenuta su somme già riscosse", 
+	'MP01':"contanti",
+	'MP02':"assegno",
+	'MP03':"assegno circolare",
+	'MP04':"contanti presso Tesoreria",
+	'MP05':"bonifico",
+	'MP06':"vaglia cambiario",
+	'MP07':"bollettino bancario",
+	'MP08':"carta di pagamento",
+	'MP09':"RID",
+	'MP10':"RID utenze",
+	'MP11':"RID veloce",
+	'MP12':"RIBA",
+	'MP13':"MAV",
+	'MP14':"quietanza erario",
+	'MP15':"giroconto su conti di contabilità speciale",
+	'MP16':"domiciliazione bancaria",
+	'MP17':"domiciliazione postale",
+	'MP18':"bollettino di c/c postale", 
+	'MP19':"SEPA Direct Debit",
+	'MP20':"SEPA Direct Debit CORE",
+	'MP21':"SEPA Direct Debit B2B",
+	'MP22':"Trattenuta su somme già riscosse",
+	'MP23':"PagoPA",
 }
 EsigibilitaIVA_t = {	'D':"esibilità differita", 'I':"esigibilità immediata", 'S':"scissione dei pagamenti"	}
 Natura_t = {
-	'':"Standard (nessuna ulteriore natura)", 'N1':"Escluse ex. art.15", 'N2':"Non soggette", 'N3':"Non Imponibili", 'N4':"Esenti", 'N5':"Regime del margine", 'N6':"Inversione contabile (reverse charge)",
-	'N7':"IVA assolta in altro stato UE (vendite a distanza ex art.40 commi 3 e 4 e art.41 comma 1 lett.b, DL 331/93; prestazione di servizi di telecomunicazioni, teleradiodiffusione ed elettronici ex art.7-sexies lett. f,g, DPR 633/72 e art.74-sexies, DPR 633/72)"
+	'':"Standard (nessuna ulteriore natura)", 'N1':"Esclusa ex art.15", 'N4':"Esente", 'N5':"Regime del margine / IVA non esposta in fattura",
+	'N7':"IVA assolta in altro stato UE (vendite a distanza ex art.40 commi 3 e 4 e art.41 comma 1 lett.b, DL 331/93; prestazione di servizi di telecomunicazioni, teleradiodiffusione ed elettronici ex art.7-sexies lett. f,g, DPR 633/72 e art.74-sexies, DPR 633/72)",
+	'N2':"Non soggetta [...]", 'N3':"Non imponibile [...]", 'N6':"Inversione contabile (reverse charge)[...]",
 }
 _nature_esenti_IVA_ritenuta = frozenset([ 'N2','N3','N4' ])
 RefNormativo_t = {
-	'7-3.1'  :"(art.7-ter cm.1 DPR 633/1972)",
-	'7-7.1.c':"(art.7-septies cm.1(c) DPR 633/1972"
+	'N2':{	# NON SOGGETTE
+		'N2.1':"Non soggetta (artt. da 7 a 7septies DPR 633/1972)",
+		'N2.2':"Non soggetta (altri casi)"	},
+	'N3':{	# NON IMPONIBILI
+		'N3.1':"Non imponibile (esportazione)", 
+		'N3.2':"Non imponibile (cessione intracomunitaria)", 
+		'N3.3':"Non imponibile (cessione verso San Marino)", 
+		'N3.4':"Non imponibile (assimilata a cessione all'esportazione)", 
+		'N3.5':"Non imponibile (a seguito di dichiarazione di intento)", 
+		'N3.6':"Non imponibile (altra operazione che non concorre alla formazione del plafond)"	},
+	'N6':{	# INVERSIONE CONTABILE ('REVERSE CHARGE')
+		'N6.1':"Inversione contabile (cessione di rottami e altri materiali di recupero)", 
+		'N6.2':"Inversione contabile (cessione di oro e argento puro)", 
+		'N6.3':"Inversione contabile (subappalto nel settore edile)", 
+		'N6.4':"Inversione contabile (cessione di fabbricati)", 
+		'N6.5':"Inversione contabile (cessione di telefoni cellulari)", 
+		'N6.6':"Inversione contabile (cessione di prodotti elettronici)", 
+		'N6.7':"Inversione contabile (prestazioni comparto edile e settori connessi)", 
+		'N6.8':"Inversione contabile (operazioni settore energetico)", 
+		'N6.9':"Inversione contabile (altri casi)"	}
 }
 SocioUnico_t = {	'SU':"socio unico", 'SM':"più soci"	}
 StatoLiquidazione_t = {	'LS':"in liquidazione", 'LN':"non in liquidazione"	}
