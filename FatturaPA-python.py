@@ -169,8 +169,11 @@ def create_config():
 				'aliquota':eval(XML_input("Indicare l'aliquota contributo cassa:  ")),
 				'IVA':VAT_DEFAULT	# Questa linea verrà sostiuita da un lookup automatico sul RegimeFiscaleIVA_t in base al valore di user['RegimeFiscale']
 			}
+			
 		elif answ and answ[0].lower()=="n":
-			del user['cassa']
+			## @noirepa
+			try : del user['cassa']
+			except : pass
 			answ = None;	break
 		else: answ = None;	continue
 	iban = None
