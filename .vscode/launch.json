@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "Python: file corrente",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": [
+                "inizializza"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": True,
+        }
+    ]
+}

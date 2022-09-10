@@ -1,52 +1,24 @@
 {
-	"001": {
-		"name": "Cessionario/Committente",
-		"VAT#": [
-			"IT",
-			"12345678901"
-		],
-		"CF": "98765432100",
-		"Id": "0000000",
-		"addr": {
-			"country": "IT",
-			"zip": "20100",
-			"addr": "via / piazza Etcetera",
-			"#": "100",
-			"prov": "MI",
-			"muni": "Rilano"
-		},
-		"email": "indirizzo.pec@committente.org"
-	},
 	"USER": {
 		"name": [
-			"Mario",
-			"Rossi"
+			"Gaetano",
+			"D'Orsi"
 		],
 		"VAT#": [
 			"IT",
-			"98765432100"
+			"15214731000"
 		],
-		"CF": "RSSMRA75L01H501A",
+		"CF": "DRSGTN90H28L259O",
 		"Id": "0000000",
 		"addr": {
 			"country": "IT",
-			"zip": "00100",
-			"addr": "via/piazza/viale/strada Nome",
-			"#": "11/A",
-			"prov": "RM",
-			"muni": "Roma"
+			"zip": "80059",
+			"addr": "Via Litoranea",
+			"prov": "NA",
+			"muni": "Torre del Greco",
+			"#": "86"
 		},
-		"email": "nome.cognome.pec@gestore.pec.it",
-		"RegimeFiscale": "RF01",
-		"ritenuta": {
-			"aliquota": 20.0,
-			"causale": "A",
-			"tipo": "RT01"
-		},
-		"cassa": {
-			"tipo": "TC22",
-			"aliquota": 4,
-			"IVA": 22.0
-		}
+		"email": "gaetano.dorsi@pec.net",
+		"RegimeFiscale": "RF19"
 	}
 }
