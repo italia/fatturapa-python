@@ -8,7 +8,7 @@
 #    GNU (GPL) 2019-2021 Walter Arrighetti               #
 #    coding by: Ing. Walter Arrighetti, PhC, CISSP CCSP  #
 #  < https://github.com/walter-arrighetti/pyFatturaPA >  #
-#                                                        #
+#    Forked by @noirepa                                                     #
 ##########################################################
 import datetime
 import os.path
@@ -20,7 +20,26 @@ __VERSION = "1.3.1"
 CONF_FILE = "pyFatturaPA.conf.json"
 VAT_DEFAULT = 22.0
 
-
+def main():
+	def print_args():
+		print(" Utilizzo:  %s  emetti | fornitore | inizializza"%os.path.basename(sys.argv[0]))
+		print("\t\temetti       Crea fattura generica verso fornitore esistente")
+		print("\t\tconsulenza       \"\"   di consulenza a fornitore (UE / extra-UE)")
+		print("\t\tcommittente  Aggiunge un fornitore (UE / extra-UE) al database")
+		print("\t\tinizializza  Inizializza un nuovo database con i tuoi dati")
+		print('\n')
+		sys.exit(9)
+	print("pyFatturaPA %s - Genera rapidamente fatture elettroniche semplici in XML nel formato FatturaPA."%__VERSION)
+	print("GNU (GPL) 2019 by Walter Arrighetti  <walter.arrighetti@agid.gov.it>\n")
+	[PROVINCES.extend(list(prov.keys())) for prov in REGIONS.values()]
+	if len(sys.argv) != 2:	print_args()
+	elif sys.argv[1].lower()=="consulenza":	issue_consultancy()
+	elif sys.argv[1].lower()=="emetti":	issue_invoice()
+	elif sys.argv[1].lower()=="committente":	add_company()
+	elif sys.argv[1].lower()=="inizializza":	create_config()
+	else:	print_args()
+	sys.exit(0)
+	
 def check_config():
 	try:	os.path.exists(CONF_FILE)
 	except:	return create_config()
@@ -290,7 +309,7 @@ def FatturaPA_assemble(user, client, data):
 			'\t\t\t\t\t<ImportoContributoCassa>%.02f</ImportoContributoCassa>'%data['cassa']['importo'],
 			'\t\t\t\t\t<ImponibileCassa>%.02f</ImponibileCassa>'%data['cassa']['imponibile'],
 			'\t\t\t\t\t<AliquotaIVA>%.02f</AliquotaIVA>'%user['cassa']['IVA']])
-		if 'natura' in data.keys():	F.append('\t\t\t\t\t<Natura>%s</Natura>'%data['natura'][0])
+		if 'natura' in data.keys():	F.append('\t\t\t\t\t<Natura>%s</Natura>'%data['natura'])
 		F.append('\t\t\t\t</DatiCassaPrevidenziale>')
 	if 'causale' in data.keys():
 		for k in range(0,len(data['causale']),200):
@@ -332,18 +351,18 @@ def FatturaPA_assemble(user, client, data):
 				for exent in _nature_esenti_IVA_ritenuta:
 					if data['natura'][0].startswith(exent):	pass
 			else:	F.append('\t\t\t\t<Ritenuta>%s</Ritenuta>'%'SI')
-		if 'natura' in data.keys():	F.append('\t\t\t\t<Natura>%s</Natura>'%data['natura'][0])
+		if 'natura' in data.keys():	F.append('\t\t\t\t<Natura>%s</Natura>'%data['natura'])
 		F.append('\t\t\t</DettaglioLinee>')
 	F.extend([
 		'\t\t\t<DatiRiepilogo>',
 		'\t\t\t\t<AliquotaIVA>%.02f</AliquotaIVA>'%data['total']['aliquota']])
 	if 'natura' in data.keys():
-		F.append('\t\t\t\t<Natura>%s</Natura>'%data['natura'][0])
+		F.append('\t\t\t\t<Natura>%s</Natura>'%data['natura'])
 	F.extend([
 		'\t\t\t\t<ImponibileImporto>%.02f</ImponibileImporto>'%data['total']['imponibile'],
 		'\t\t\t\t<Imposta>%.02f</Imposta>'%data['total']['imposta']])
-	if 'natura' in data.keys():
-		F.append('\t\t\t\t<RiferimentoNormativo>%s</RiferimentoNormativo>'%data['natura'][1]),
+#	if 'natura' in data.keys():
+#		F.append('\t\t\t\t<RiferimentoNormativo>%s</RiferimentoNormativo>'%data['natura'][1]),
 	if data['total']['aliquota'] != 0.:
 		F.append('\t\t\t\t<EsigibilitaIVA>%s</EsigibilitaIVA>'%data['EsigibilitaIVA']),
 	F.extend([
@@ -430,8 +449,8 @@ def issue_consultancy():
 	else:
 		if data['natura'] in _nature_esenti_IVA_ritenuta:
 			aliquotaIVA, ritenuta = 0, False
-		if data['natura'] in RefNormativo_t.keys():
-			data['natura'] = _enum_selection(RefNormativo_t[data['natura']],"riferimento normativo")
+#		if data['natura'] in RefNormativo_t.keys():
+#			data['natura'] = _enum_selection(RefNormativo_t[data['natura']],"riferimento normativo")
 	data['total'] = {	'aliquota':aliquotaIVA, 'subtotale':0., 'imponibile':0.		}
 	while True:
 		delaydays = XML_input("Giorni ammessi per il pagamento dall'emissione (premere [Invio] per nessuno):  ")
@@ -491,8 +510,11 @@ def issue_consultancy():
 	if 'cassa' in user.keys():
 		data['total']['cassa'] = subtotale * (user['cassa']['aliquota']/100)
 	else:	data['total']['imposta'] = 0
-	data['cassa'] = {	'importo':data['total']['cassa'], 'imponibile':subtotale, 'aliquota':user['cassa']['aliquota']	}
-	subtotale += data['cassa']['importo']
+	try: 
+		data['cassa'] = {	'importo':data['total']['cassa'], 'imponibile':subtotale, 'aliquota':user['cassa']['aliquota']	}
+		subtotale += data['cassa']['importo']
+	except: 
+		pass
 	data['total']['imponibile'] = subtotale
 	####	Calcolo della Ritenuta d'Acconto
 	if ritenuta:
@@ -553,7 +575,7 @@ def issue_invoice():
 	#else:	vector = client
 	data['EsigibilitaIVA'] = _enum_selection(EsigibilitaIVA_t, "esigibilità dell'IVA", 'I')
 	while True:
-		aliquotaIVA = XML_input("Aliquota IVA (default: %d%%; indicare \"0\" se non applcabile):  "%user['cassa']['IVA'])
+		aliquotaIVA = XML_input("Aliquota IVA (default: %d%%; indicare \"0\" se non applcabile): ")
 		if not aliquotaIVA:	aliquotaIVA = VAT_DEFAULT;	break
 		elif aliquotaIVA.isnumeric():	aliquotaIVA = eval(aliquotaIVA);	break
 	data['total'] = {
@@ -571,8 +593,8 @@ def issue_invoice():
 	else:
 		if data['natura'] in _nature_esenti_IVA_ritenuta:
 			aliquotaIVA, ritenuta = 0, False
-		if data['natura'] in RefNormativo_t.keys():
-			data['natura'] = _enum_selection(RefNormativo_t[data['natura']],"riferimento normativo")
+#		if data['natura'] in RefNormativo_t.keys():
+#			data['natura'] = _enum_selection(RefNormativo_t[data['natura']],"riferimento normativo")
 	if data['pagamento']['condizioni'] in ['TP01']:
 		exp = None
 		while not exp.isinstance(datetime.date):
@@ -658,14 +680,21 @@ def issue_invoice():
 	if 'cassa' in user.keys():
 		data['total']['cassa'] = subtotale * (user['cassa']['aliquota']/100)
 	else:	data['total']['imposta'] = 0
-	data['cassa'] = {	'importo':data['total']['cassa'], 'imponibile':subtotale, 'aliquota':user['cassa']['aliquota']	}
-	subtotale += data['cassa']['importo']
+	#### @noirepa Se l'utente non ha una cassa preimpostata salto il calcolo 
+	try : 
+		data['cassa'] = {	'importo':data['total']['cassa'], 'imponibile':subtotale, 'aliquota':user['cassa']['aliquota']	}
+		subtotale += data['cassa']['importo']
+	except: 
+		pass
 	data['total']['imponibile'] = subtotale
 	####	CALCOLO DELLA RITENUTA D'ACCONTO
 	if ritenuta:
 		data['total']['ritenuta'] = -1 * subtotale * (user['ritenuta']['aliquota']/100)	# = user['ritenuta']['importo']
 	else:	data['total']['ritenuta'] = 0
-	data['ritenuta'] = {	'importo':data['total']['ritenuta'], 'imponibile':subtotale, 'aliquota':user['ritenuta']['aliquota']	}
+	try: 
+		data['ritenuta'] = {	'importo':data['total']['ritenuta'], 'imponibile':subtotale, 'aliquota':user['ritenuta']['aliquota']	}
+	except: 
+		pass
 	subtotale += data['total']['ritenuta']
 	####	CALCOLO DELL'IMPONIBILE EFFETTIVO
 	data['total']['imposta'] = data['total']['imponibile'] * (data['total']['aliquota']/100)
@@ -844,56 +873,63 @@ ModalitaPagamento_t = {
 }
 EsigibilitaIVA_t = {	'D':"esibilità differita", 'I':"esigibilità immediata", 'S':"scissione dei pagamenti"	}
 Natura_t = {
-	'':"Standard (nessuna ulteriore natura)", 'N1':"Esclusa ex art.15", 'N4':"Esente", 'N5':"Regime del margine / IVA non esposta in fattura",
+
+	'':"Standard (nessuna ulteriore natura)", 
+	'N1':"Esclusa ex art.15", 
+	'N2':"Non soggetta [...]", 
+	'N2.1':"Non soggetta (artt. da 7 a 7septies DPR 633/1972)",
+	'N2.2':"Non soggetta (altri casi)",
+	'N3':"Non imponibile [...]", 
+	'N3.1':"Non imponibile (esportazione)", 
+	'N3.2':"Non imponibile (cessione intracomunitaria)", 
+	'N3.3':"Non imponibile (cessione verso San Marino)", 
+	'N3.4':"Non imponibile (assimilata a cessione all'esportazione)", 
+	'N3.5':"Non imponibile (a seguito di dichiarazione di intento)", 
+	'N3.6':"Non imponibile (altra operazione che non concorre alla formazione del plafond)",
+	'N4':"Esente", 
+	'N5':"Regie del margine / IVA non esposta in fattura",
+	'N6':"Inversione contabile (reverse charge) per le operazioni in reverse charge ovvero nei casi di autofatturazione per acquisti extra UE di servizi ovvero per importazioni di beni nei soli casi previsti",
+	'N6.1':"Inversione contabile (cessione di rottami e altri materiali di recupero)", 
+	'N6.2':"Inversione contabile (cessione di oro e argento puro)", 
+	'N6.3':"Inversione contabile (subappalto nel settore edile)", 
+	'N6.4':"Inversione contabile (cessione di fabbricati)", 
+	'N6.5':"Inversione contabile (cessione di telefoni cellulari)", 
+	'N6.6':"Inversione contabile (cessione di prodotti elettronici)", 
+	'N6.7':"Inversione contabile (prestazioni comparto edile e settori connessi)", 
+	'N6.8':"Inversione contabile (operazioni settore energetico)", 
+	'N6.9':"Inversione contabile (altri casi)",
 	'N7':"IVA assolta in altro stato UE (vendite a distanza ex art.40 commi 3 e 4 e art.41 comma 1 lett.b, DL 331/93; prestazione di servizi di telecomunicazioni, teleradiodiffusione ed elettronici ex art.7-sexies lett. f,g, DPR 633/72 e art.74-sexies, DPR 633/72)",
-	'N2':"Non soggetta [...]", 'N3':"Non imponibile [...]", 'N6':"Inversione contabile (reverse charge)[...]",
 }
-_nature_esenti_IVA_ritenuta = frozenset([ 'N2','N3','N4' ])
-RefNormativo_t = {
-	'N2':{	# NON SOGGETTE
-		'N2.1':"Non soggetta (artt. da 7 a 7septies DPR 633/1972)",
-		'N2.2':"Non soggetta (altri casi)"	},
-	'N3':{	# NON IMPONIBILI
-		'N3.1':"Non imponibile (esportazione)", 
-		'N3.2':"Non imponibile (cessione intracomunitaria)", 
-		'N3.3':"Non imponibile (cessione verso San Marino)", 
-		'N3.4':"Non imponibile (assimilata a cessione all'esportazione)", 
-		'N3.5':"Non imponibile (a seguito di dichiarazione di intento)", 
-		'N3.6':"Non imponibile (altra operazione che non concorre alla formazione del plafond)"	},
-	'N6':{	# INVERSIONE CONTABILE ('REVERSE CHARGE')
-		'N6.1':"Inversione contabile (cessione di rottami e altri materiali di recupero)", 
-		'N6.2':"Inversione contabile (cessione di oro e argento puro)", 
-		'N6.3':"Inversione contabile (subappalto nel settore edile)", 
-		'N6.4':"Inversione contabile (cessione di fabbricati)", 
-		'N6.5':"Inversione contabile (cessione di telefoni cellulari)", 
-		'N6.6':"Inversione contabile (cessione di prodotti elettronici)", 
-		'N6.7':"Inversione contabile (prestazioni comparto edile e settori connessi)", 
-		'N6.8':"Inversione contabile (operazioni settore energetico)", 
-		'N6.9':"Inversione contabile (altri casi)"	}
-}
+_nature_esenti_IVA_ritenuta = frozenset([ 'N2','N2.1','N2.2','N3','N3.1','N3.2','N3.3','N3.4','N3.5','N3.6','N4' ])
+
+#RefNormativo_t = {
+#	'N2':{	# NON SOGGETTE
+#		'N2.1':"Non soggetta (artt. da 7 a 7septies DPR 633/1972)",
+#		'N2.2':"Non soggetta (altri casi)"	},
+#	'N3':{	# NON IMPONIBILI
+#		'N3.1':"Non imponibile (esportazione)", 
+#		'N3.2':"Non imponibile (cessione intracomunitaria)", 
+#		'N3.3':"Non imponibile (cessione verso San Marino)", 
+#		'N3.4':"Non imponibile (assimilata a cessione all'esportazione)", 
+#		'N3.5':"Non imponibile (a seguito di dichiarazione di intento)", 
+#		'N3.6':"Non imponibile (altra operazione che non concorre alla formazione del plafond)"	},
+#	'N6':{	# INVERSIONE CONTABILE ('REVERSE CHARGE')
+#		'N6.1':"Inversione contabile (cessione di rottami e altri materiali di recupero)", 
+#		'N6.2':"Inversione contabile (cessione di oro e argento puro)", 
+#		'N6.3':"Inversione contabile (subappalto nel settore edile)", 
+#		'N6.4':"Inversione contabile (cessione di fabbricati)", 
+#		'N6.5':"Inversione contabile (cessione di telefoni cellulari)", 
+#		'N6.6':"Inversione contabile (cessione di prodotti elettronici)", 
+#		'N6.7':"Inversione contabile (prestazioni comparto edile e settori connessi)", 
+#		'N6.8':"Inversione contabile (operazioni settore energetico)", 
+#		'N6.9':"Inversione contabile (altri casi)"	}
+#}
+
 SocioUnico_t = {	'SU':"socio unico", 'SM':"più soci"	}
 StatoLiquidazione_t = {	'LS':"in liquidazione", 'LN':"non in liquidazione"	}
 TipoCessionePrestazione_t = {	'SC':"Sconto", 'PR':"Premio", 'AB':"Abbuono", 'AC':"Spesa accessoria"	}
 
-def main():
-	def print_args():
-		print(" Utilizzo:  %s  emetti | fornitore | inizializza"%os.path.basename(sys.argv[0]))
-		print("\t\temetti       Crea fattura generica verso fornitore esistente")
-		print("\t\tconsulenza       \"\"   di consulenza a fornitore (UE / extra-UE)")
-		print("\t\tcommittente  Aggiunge un fornitore (UE / extra-UE) al database")
-		print("\t\tinizializza  Inizializza un nuovo database con i tuoi dati")
-		print('\n')
-		sys.exit(9)
-	print("pyFatturaPA %s - Genera rapidamente fatture elettroniche semplici in XML nel formato FatturaPA."%__VERSION)
-	print("GNU (GPL) 2019 by Walter Arrighetti  <walter.arrighetti@agid.gov.it>\n")
-	[PROVINCES.extend(list(prov.keys())) for prov in REGIONS.values()]
-	if len(sys.argv) != 2:	print_args()
-	elif sys.argv[1].lower()=="consulenza":	issue_consultancy()
-	elif sys.argv[1].lower()=="emetti":	issue_invoice()
-	elif sys.argv[1].lower()=="committente":	add_company()
-	elif sys.argv[1].lower()=="inizializza":	create_config()
-	else:	print_args()
-	sys.exit(0)
+
 
 
 if __name__ == "__main__": main()
